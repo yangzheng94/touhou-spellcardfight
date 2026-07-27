@@ -8,6 +8,7 @@ import {
   negateEffect,
   setHp,
   hpOf,
+  requestDecision,
 } from "../effects.js";
 import { addBuff, getRes, setRes, addRes } from "../buffs.js";
 
@@ -200,12 +201,13 @@ export const remilia: Character = {
       text: "可选择提升3点威力并受到3点法术伤害，或降低3点威力并对对方产生3点法术伤害",
       tags: [],
       script: {
-        power: (ec) => {
-          const i = ec.ctx.decide({
-            player: ec.self,
-            prompt: "吸血鬼幻想：增威受伤 或 减威攻击？",
-            options: ["威力+3并自受3法术", "威力-3并对敌3法术"],
-          });
+        power: async (ec) => {
+          const i = await requestDecision(
+            ec,
+            ec.self,
+            "吸血鬼幻想：增威受伤 或 减威攻击？",
+            ["威力+3并自受3法术", "威力-3并对敌3法术"],
+          );
           setRes(ec, ec.self, "_gensou_choice", i);
           if (i === 0) addPower(ec, 3);
           else addPower(ec, -3);

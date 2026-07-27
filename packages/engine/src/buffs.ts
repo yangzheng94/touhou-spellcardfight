@@ -19,6 +19,8 @@ export interface BuffSpec {
   triggers?: number;
   script: EffectScript;
   data?: Record<string, number>;
+  /** 当回合立即生效（默认 false，下回合开始才触发）。 */
+  activateOnCreate?: boolean;
 }
 
 /** 为某方添加一个 buff（若同 id 已存在则替换/刷新）。 */
@@ -33,6 +35,7 @@ export function addBuff(ec: EffectContext, spec: BuffSpec): void {
     remainingTriggers: spec.triggers ?? -1,
     script: spec.script,
     data: spec.data,
+    activateOnCreate: spec.activateOnCreate ?? false,
   };
   const idx = p.buffs.findIndex((b) => b.id === spec.id);
   if (idx >= 0) p.buffs[idx] = buff;

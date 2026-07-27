@@ -10,7 +10,7 @@ import {
   multTakenDamage,
   requestDecision,
 } from "../effects.js";
-import { addBuff, getRes, setRes, consumeTrigger } from "../buffs.js";
+import { addBuff, getRes, setRes, getFlag, setFlag } from "../buffs.js";
 import { hpTurnsAgo } from "../state.js";
 
 export const sakuya: Character = {
@@ -40,49 +40,65 @@ export const sakuya: Character = {
     {
       id: "sakuya-hanahiraku",
       name: "花开夜",
-      text: "打出伤害时可选择将其延迟至下一回合计算",
+      text: "打出伤害时可选择将其延迟，可一直延后直到玩家决定触发（物理/法术分开存储）",
       cooldown: 1,
       passive: true,
       declaredAtTurnStart: false,
       script: {
-        apply: (ec) => {
-          // 只在实际造成伤害时才触发选择
+        apply: async (ec) => {
+          // 1. 先检查是否触发之前延迟的伤害（玩家决定何时触发）
+          const pending = getFlag(ec, ec.self, "_hanahiraku_pending");
+          if (pending) {
+            const p = getRes(ec, ec.self, "_hanahiraku_p");
+            const s = getRes(ec, ec.self, "_hanahiraku_s");
+            if (p > 0 || s > 0) {
+              const choice = await requestDecision(
+                ec,
+                ec.self,
+                `花开夜：是否触发延迟的伤害（物理${p}+法术${s}）？`,
+                ["触发", "继续延迟"],
+              );
+              if (choice === 0) {
+                // 严格分开物理和法术伤害
+                if (p > 0) dealPhysical(ec, p);
+                if (s > 0) dealSpell(ec, s);
+                setRes(ec, ec.self, "_hanahiraku_p", 0);
+                setRes(ec, ec.self, "_hanahiraku_s", 0);
+                setFlag(ec, ec.self, "_hanahiraku_pending", false);
+                ec.ctx.log({ type: "info", msg: `花开夜：触发延迟的伤害（物理${p}+法术${s}）` });
+              }
+            } else {
+              setFlag(ec, ec.self, "_hanahiraku_pending", false);
+            }
+          }
+
+          // 2. 检查本回合是否造成新伤害，询问是否延迟
           const d = ec.ctx.dealt[ec.foe];
           const totalDmg = d.physical + d.spell;
           if (totalDmg > 0) {
-            const choice = requestDecision(
+            const choice = await requestDecision(
               ec,
               ec.self,
-              "花开夜：是否将本回合造成的伤害延迟至下一回合？",
-              ["立即结算", "延迟至下一回合"],
+              "花开夜：是否将本回合造成的伤害延迟？",
+              ["立即结算", "延迟"],
             );
             if (choice === 1) {
-              // 记录当前伤害到资源中，然后清除
-              setRes(ec, ec.self, "_hanahiraku_p", d.physical);
-              setRes(ec, ec.self, "_hanahiraku_s", d.spell);
+              // 撤销本回合已造成的伤害（恢复对手HP），实现真正的"延迟"
+              const foe = ec.ctx.state.players[ec.foe];
+              const before = foe.hp;
+              foe.hp = Math.min(foe.maxHp, foe.hp + totalDmg);
+              const restored = foe.hp - before;
+              if (restored > 0) {
+                ec.ctx.log({ type: "info", msg: `花开夜：撤销本回合对 ${foe.character.name} 造成的 ${totalDmg} 伤害（HP ${before} → ${foe.hp}），延迟至后续回合触发` });
+              }
+              // 累加存储伤害（严格分开物理和法术，可跨回合累积）
+              const prevP = getRes(ec, ec.self, "_hanahiraku_p");
+              const prevS = getRes(ec, ec.self, "_hanahiraku_s");
+              setRes(ec, ec.self, "_hanahiraku_p", prevP + d.physical);
+              setRes(ec, ec.self, "_hanahiraku_s", prevS + d.spell);
               d.physical = 0;
               d.spell = 0;
-              
-              // 添加 buff，在下一回合 damage 阶段应用延迟的伤害
-              addBuff(ec, {
-                id: "sakuya-hanahiraku-delay",
-                name: "花开夜-延迟伤害",
-                owner: ec.self,
-                turns: 2,
-                triggers: 1,
-                script: {
-                  damage: (e) => {
-                    const p = getRes(e, e.self, "_hanahiraku_p");
-                    const s = getRes(e, e.self, "_hanahiraku_s");
-                    if (p > 0) dealPhysical(e, p);
-                    if (s > 0) dealSpell(e, s);
-                    // 清除存储的伤害
-                    setRes(e, e.self, "_hanahiraku_p", 0);
-                    setRes(e, e.self, "_hanahiraku_s", 0);
-                    consumeTrigger(e, e.self, "sakuya-hanahiraku-delay");
-                  },
-                },
-              });
+              setFlag(ec, ec.self, "_hanahiraku_pending", true);
             }
           }
         },
@@ -109,18 +125,26 @@ export const sakuya: Character = {
       text: "可选择将打出的伤害全部转换为法术伤害",
       tags: ["spell-damage"],
       script: {
-        damage: (ec) => {
-          const phys = ec.ctx.dealt[ec.foe].physical;
+        damage: async (ec) => {
+          const physItems = ec.ctx.pending.filter(
+            (p) => p.target === ec.foe && p.type === "physical" && !p.isHeal && !p.isDrain,
+          );
+          const phys = physItems.reduce((sum, p) => sum + p.amount, 0);
           if (phys > 0) {
-            const choice = requestDecision(
+            const choice = await requestDecision(
               ec,
               ec.self,
-              `杀人玩偶：本回合造成了 ${phys} 物理伤害，是否转换为法术伤害？`,
+              `杀人玩偶：本回合有 ${phys} 物理伤害待结算，是否转换为法术伤害？`,
               ["保持物理伤害", "转换为法术伤害"],
             );
             if (choice === 1) {
+              // 从pending中移除物理伤害
+              ec.ctx.pending = ec.ctx.pending.filter(
+                (p) => !(p.target === ec.foe && p.type === "physical" && !p.isHeal && !p.isDrain),
+              );
+              // 添加等量法术伤害
               dealSpell(ec, phys);
-              ec.ctx.dealt[ec.foe].physical = 0;
+              ec.ctx.log({ type: "info", msg: `杀人玩偶：将${phys}物理伤害转换为法术伤害` });
             }
           }
         },
@@ -196,53 +220,103 @@ export const sakuya: Character = {
       text: "下回合己方所受伤害减半，对方所受伤害加倍，双方伤害必须延迟至下下回合进行结算",
       tags: ["buff"],
       script: {
-        apply: (ec) =>
+        power: (ec) => {
+          setRes(ec, ec.self, "_world_dp_a", 0);
+          setRes(ec, ec.self, "_world_ds_a", 0);
+          setRes(ec, ec.self, "_world_dp_b", 0);
+          setRes(ec, ec.self, "_world_ds_b", 0);
           addBuff(ec, {
             id: "sakuya-world-buff",
             name: "THE WORLD",
             owner: ec.self,
             turns: 2,
             triggers: 1,
+            activateOnCreate: true,
             script: {
-              turnStart: (e) => {
-                e.ctx.state.players["A"].flags["_world_delay"] = true;
-                e.ctx.state.players["B"].flags["_world_delay"] = true;
-              },
               damage: (e) => {
+                e.ctx.log({ type: "info", msg: `THE WORLD：damage阶段生效，己方减伤/对方增伤` });
                 multTakenDamage(e, e.self, "physical", 0.5);
                 multTakenDamage(e, e.self, "spell", 0.5);
                 multTakenDamage(e, e.foe, "physical", 2);
                 multTakenDamage(e, e.foe, "spell", 2);
               },
               turnEnd: (e) => {
-                const dmgToA = e.ctx.dealt.A;  // A 受到的伤害（B 对 A 造成的）
-                const dmgToB = e.ctx.dealt.B;  // B 受到的伤害（A 对 B 造成的）
-                if (dmgToA.physical > 0 || dmgToA.spell > 0 || dmgToB.physical > 0 || dmgToB.spell > 0) {
-                  addBuff(e, {
-                    id: "sakuya-world-delayed",
-                    name: "THE WORLD-延迟伤害",
-                    owner: e.self,
-                    turns: 2,
-                    triggers: 1,
-                    script: {
-                      damage: (ee) => {
-                        // A 对 B 造成的伤害（B 受到的伤害）
-                        if (dmgToB.physical > 0) dealPhysical(ee, dmgToB.physical, "B", "A");
-                        if (dmgToB.spell > 0) dealSpell(ee, dmgToB.spell, "B", "A");
-                        // B 对 A 造成的伤害（A 受到的伤害）
-                        if (dmgToA.physical > 0) dealPhysical(ee, dmgToA.physical, "A", "B");
-                        if (dmgToA.spell > 0) dealSpell(ee, dmgToA.spell, "A", "B");
-                      },
-                    },
-                  });
+                const self = e.self;
+                const foe = e.foe;
+                const worldBuff = e.ctx.state.players[self].buffs.find(b => b.id === "sakuya-world-buff");
+                const remainingTurns = worldBuff?.remainingTurns ?? 0;
+                e.ctx.log({ type: "info", msg: `THE WORLD：turnEnd, remainingTurns=${remainingTurns}` });
+
+                // 第一步：撤销本回合伤害并累积存储（所有 remainingTurns >= 1 的情况）
+                if (remainingTurns >= 1) {
+                  const dmgA = e.ctx.dealt[foe];
+                  const dmgB = e.ctx.dealt[self];
+                  const totalA = dmgA.physical + dmgA.spell;
+                  const totalB = dmgB.physical + dmgB.spell;
+
+                  e.ctx.log({ type: "info", msg: `THE WORLD：撤销本回合伤害(${self}→${foe}=${totalA}, ${foe}→${self}=${totalB})` });
+
+                  if (totalA > 0) {
+                    const pA = e.ctx.state.players[foe];
+                    pA.hp = Math.min(pA.maxHp, pA.hp + totalA);
+                  }
+                  if (totalB > 0) {
+                    const pB = e.ctx.state.players[self];
+                    pB.hp = Math.min(pB.maxHp, pB.hp + totalB);
+                  }
+
+                  setRes(e, self, "_world_dp_a", getRes(e, self, "_world_dp_a") + dmgA.physical);
+                  setRes(e, self, "_world_ds_a", getRes(e, self, "_world_ds_a") + dmgA.spell);
+                  setRes(e, self, "_world_dp_b", getRes(e, self, "_world_dp_b") + dmgB.physical);
+                  setRes(e, self, "_world_ds_b", getRes(e, self, "_world_ds_b") + dmgB.spell);
+                  e.ctx.dealt[self] = { physical: 0, spell: 0 };
+                  e.ctx.dealt[foe] = { physical: 0, spell: 0 };
                 }
-                e.ctx.dealt.A = { physical: 0, spell: 0 };
-                e.ctx.dealt.B = { physical: 0, spell: 0 };
-                delete e.ctx.state.players["A"].flags["_world_delay"];
-                delete e.ctx.state.players["B"].flags["_world_delay"];
+
+                // 第二步：remainingTurns===1 表示 THE WORLD 即将失效，此时资源已包含所有累积伤害（含本回合），创建结算 buff
+                if (remainingTurns === 1) {
+                  const dpA = getRes(e, self, "_world_dp_a");
+                  const dsA = getRes(e, self, "_world_ds_a");
+                  const dpB = getRes(e, self, "_world_dp_b");
+                  const dsB = getRes(e, self, "_world_ds_b");
+                  const total = dpA + dsA + dpB + dsB;
+
+                  e.ctx.log({ type: "info", msg: `THE WORLD：结算累积伤害(${self}→${foe}物理${dpA}+法术${dsA}, ${foe}→${self}物理${dpB}+法术${dsB})，下回合结算` });
+
+                  if (total > 0) {
+                    addBuff(e, {
+                      id: "sakuya-world-final",
+                      name: "THE WORLD-延迟结算",
+                      owner: self,
+                      turns: 1,
+                      triggers: 1,
+                      activateOnCreate: true,
+                      data: { dpA, dsA, dpB, dsB },
+                      script: {
+                        damage: (ee) => {
+                          const buff = ee.ctx.state.players[ee.self].buffs.find(b => b.id === "sakuya-world-final");
+                          if (buff?.data) {
+                            const d = buff.data;
+                            if (d.dpA > 0) dealPhysical(ee, d.dpA, ee.foe, ee.self);
+                            if (d.dsA > 0) dealSpell(ee, d.dsA, ee.foe, ee.self);
+                            if (d.dpB > 0) dealPhysical(ee, d.dpB, ee.self, ee.foe);
+                            if (d.dsB > 0) dealSpell(ee, d.dsB, ee.self, ee.foe);
+                            ee.ctx.log({ type: "info", msg: `THE WORLD：结算延迟伤害(${ee.self}→${ee.foe}物理${d.dpA}+法术${d.dsA}, ${ee.foe}→${ee.self}物理${d.dpB}+法术${d.dsB})` });
+                          }
+                        },
+                      },
+                    });
+                  }
+
+                  setRes(e, self, "_world_dp_a", 0);
+                  setRes(e, self, "_world_ds_a", 0);
+                  setRes(e, self, "_world_dp_b", 0);
+                  setRes(e, self, "_world_ds_b", 0);
+                }
               },
             },
-          }),
+          });
+        },
       },
     },
     {
@@ -285,7 +359,7 @@ export const sakuya: Character = {
       text: "本回合可将对手的符卡威力调整至（当前回合数至10）",
       tags: [],
       script: {
-        power: (ec) => {
+        power: async (ec) => {
           const min = ec.ctx.turn;
           const max = 10;
           if (min > max) {
@@ -296,7 +370,7 @@ export const sakuya: Character = {
           for (let i = min; i <= max; i++) {
             options.push(`${i}`);
           }
-          const choice = requestDecision(
+          const choice = await requestDecision(
             ec,
             ec.self,
             `银之跳跃：请选择对方符卡的威力（${min}-${max}）`,
@@ -313,8 +387,8 @@ export const sakuya: Character = {
       text: "产生6点法术伤害，可选择将本符卡打出的伤害转换为物理伤害",
       tags: ["spell-damage"],
       script: {
-        damage: (ec) => {
-          const choice = requestDecision(
+        damage: async (ec) => {
+          const choice = await requestDecision(
             ec,
             ec.self,
             "月神之钟：本符卡产生6点伤害，选择伤害类型？",

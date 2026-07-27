@@ -56,6 +56,13 @@ export type ClientMessage =
   | { type: "decision"; value: number }
   | { type: "rematch" };
 
+export interface LogEntry {
+  turn: number;
+  phase?: string;
+  msg: string;
+  type?: "physical" | "spell" | "hp" | "buff" | "info";
+}
+
 export type ServerMessage =
   | { type: "roomCreated"; roomId: string; seat: "A" | "B" }
   | { type: "joined"; roomId: string; seat: "A" | "B" }
@@ -64,7 +71,7 @@ export type ServerMessage =
   | { type: "characterChosen"; seat: "A" | "B"; characterId: string }
   | { type: "gameStart"; view: GameView; you: "A" | "B"; yourChar: CharacterInfo; oppChar: CharacterInfo }
   | { type: "waitingForOpponent" }
-  | { type: "turnResolved"; view: GameView; newLog: { turn: number; phase?: string; msg: string }[] }
+  | { type: "turnResolved"; view: GameView; newLog: LogEntry[] }
   | { type: "decisionRequest"; prompt: string; options: string[]; range?: { min: number; max: number } }
   | { type: "opponentLeft" }
   | { type: "gameOver"; winner: "A" | "B" | "draw"; view: GameView };

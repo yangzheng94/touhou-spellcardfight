@@ -240,14 +240,14 @@ export const seija: Character = {
       tags: ["immune"],
       script: {
         damage: (ec) => immune(ec, ec.self, "physical"),
-        apply: (ec) => {
+        apply: async (ec) => {
           // 如果受到法术伤害，请求选择一张幻觉符卡
           if (ec.ctx.dealt[ec.self].spell > 0) {
             const illuCards = ec.ctx.state.players[ec.self].character.cards.filter(
               (c) => c.text.includes("幻觉")
             );
             if (illuCards.length > 0) {
-              const idx = requestDecision(
+              const idx = await requestDecision(
                 ec,
                 ec.self,
                 "受到法术伤害，选择一张幻觉符卡追加使用",
@@ -256,12 +256,12 @@ export const seija: Character = {
               const chosen = illuCards[idx];
               if (chosen) {
                 // 执行所选符卡的效果
-                if (chosen.script.turnStart) chosen.script.turnStart(ec);
-                if (chosen.script.power) chosen.script.power(ec);
-                if (chosen.script.clash) chosen.script.clash(ec);
-                if (chosen.script.damage) chosen.script.damage(ec);
-                if (chosen.script.apply) chosen.script.apply(ec);
-                if (chosen.script.turnEnd) chosen.script.turnEnd(ec);
+                if (chosen.script.turnStart) await chosen.script.turnStart(ec);
+                if (chosen.script.power) await chosen.script.power(ec);
+                if (chosen.script.clash) await chosen.script.clash(ec);
+                if (chosen.script.damage) await chosen.script.damage(ec);
+                if (chosen.script.apply) await chosen.script.apply(ec);
+                if (chosen.script.turnEnd) await chosen.script.turnEnd(ec);
               }
             }
           }

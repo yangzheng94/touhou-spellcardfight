@@ -1,5 +1,5 @@
 import type { Character } from "../types.js";
-import { addPower, dealSpell, dealPhysical, heal, reflect, negateEffect, cardPowerOf } from "../effects.js";
+import { addPower, dealSpell, dealPhysical, heal, reflect, negateEffect, cardPowerOf, requestDecision } from "../effects.js";
 import { addBuff, getRes, setRes, addRes, getFlag, setFlag } from "../buffs.js";
 
 /**
@@ -38,15 +38,16 @@ export const hata: Character = {
       passive: false,
       declaredAtTurnStart: true,
       script: {
-        damage: (ec) => {
+        damage: async (ec) => {
           const m = getRes(ec, ec.self, "masks");
           const options: string[] = [];
           for (let i = 0; i <= m; i++) options.push(`${i}个`);
-          const idx = ec.ctx.decide({
-            player: ec.self,
-            prompt: `心绮楼演舞：消耗多少个面具？（当前有${m}个）`,
+          const idx = await requestDecision(
+            ec,
+            ec.self,
+            `心绮楼演舞：消耗多少个面具？（当前有${m}个）`,
             options,
-          });
+          );
           if (idx > 0) {
             ec.ctx.damageConfig[ec.self].absorb += idx;
             setRes(ec, ec.self, "masks", m - idx);
@@ -82,12 +83,13 @@ export const hata: Character = {
       passive: false,
       declaredAtTurnStart: true,
       script: {
-        turnStart: (ec) => {
-          const i = ec.ctx.decide({
-            player: ec.self,
-            prompt: "扑克脸：选择情绪",
-            options: ["忧(回复翻倍)", "喜(物理翻倍)", "怒(法术翻倍)"],
-          });
+        turnStart: async (ec) => {
+          const i = await requestDecision(
+            ec,
+            ec.self,
+            "扑克脸：选择情绪",
+            ["忧(回复翻倍)", "喜(物理翻倍)", "怒(法术翻倍)"],
+          );
           setFlag(ec, ec.self, "emotion", ["忧", "喜", "怒"][i]);
         },
         clash: (ec) => {

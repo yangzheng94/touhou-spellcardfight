@@ -9,6 +9,7 @@ import {
   cardPowerOf,
   hpOf,
   negateEffect,
+  requestDecision,
 } from "../effects.js";
 import { addBuff } from "../buffs.js";
 import { damageTakenTurnsAgo } from "../state.js";
@@ -176,12 +177,13 @@ export const sagume: Character = {
       text: "回合结束时，可将双方生命/3",
       tags: [],
       script: {
-        turnEnd: (ec) => {
-          const i = ec.ctx.decide({
-            player: ec.self,
-            prompt: "鬼形的乌合之众：是否将双方生命变为1/3？",
-            options: ["是", "否"],
-          });
+        turnEnd: async (ec) => {
+          const i = await requestDecision(
+            ec,
+            ec.self,
+            "鬼形的乌合之众：是否将双方生命变为1/3？",
+            ["是", "否"],
+          );
           if (i === 0) {
             ec.ctx.state.players.A.hp = Math.floor(hpOf(ec, "A") / 3);
             ec.ctx.state.players.B.hp = Math.floor(hpOf(ec, "B") / 3);

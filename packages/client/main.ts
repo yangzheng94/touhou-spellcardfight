@@ -1,5 +1,6 @@
-import type { CharacterInfo, GameView, LogEntry } from "../../engine/src/types.js";
+import type { CharacterInfo, GameView, LogEntry } from "./protocol.js";
 import { getCardIcon } from "./icons/youmu.js";
+import { getPortraitOrFallback, type PortraitState } from "./portraits.js";
 
 const app = document.getElementById("app")!;
 
@@ -113,6 +114,11 @@ function glowScreen(kind: "spell" | "physical"): void {
   setTimeout(() => document.body.classList.remove(cls), 800);
 }
 
+interface DecisionRange {
+  min: number;
+  max: number;
+}
+
 interface State {
   seat: "A" | "B" | null;
   roomId: string | null;
@@ -128,9 +134,13 @@ interface State {
   selectedSkills: Set<string>;
   selectedCard: string | null;
   showSkillPanel: boolean;
-  decision: { prompt: string; options: string[] } | null;
+  decision: { prompt: string; options: string[]; range?: DecisionRange } | null;
   oppSelectedCard: string | null;
   oppSelectedSkills: string[];
+  gameOver: boolean;
+  gameOverWinner: "A" | "B" | null;
+  hurtUntilMe: number;
+  hurtUntilO: number;
 }
 
 const state: State = {
@@ -151,6 +161,10 @@ const state: State = {
   decision: null,
   oppSelectedCard: null,
   oppSelectedSkills: [],
+  gameOver: false,
+  gameOverWinner: null,
+  hurtUntilMe: 0,
+  hurtUntilO: 0,
 };
 
 /** 根据符卡 ID 查找符卡名称 */
@@ -196,7 +210,7 @@ ws.onmessage = (ev) => {
       break;
     case "characterChosen":
     case "chooseCharacter":
-      state.chosen[msg.seat] = msg.characterId;
+      state.chosen[msg.seat as "A" | "B"] = msg.characterId;
       render();
       break;
     case "gameStart":
@@ -226,6 +240,8 @@ ws.onmessage = (ev) => {
       render();
       break;
     case "turnResolved":
+      const prevHpMe = state.view?.players[state.you!]?.hp;
+      const prevHpO = state.view?.players[state.you === "A" ? "B" : "A"]?.hp;
       state.view = msg.view;
       state.submitted = false;
       state.waiting = false;
@@ -233,18 +249,48 @@ ws.onmessage = (ev) => {
       state.selectedCard = null;
       state.oppSelectedCard = null;
       state.oppSelectedSkills = [];
+      
+      // 检测伤害并触发hurt立绘
+      let needHurtTimer = false;
+      if (prevHpMe !== undefined && msg.view) {
+        const currentHpMe = msg.view.players[state.you!].hp;
+        const currentHpO = msg.view.players[state.you === "A" ? "B" : "A"].hp;
+        if (currentHpMe < prevHpMe) {
+          state.hurtUntilMe = Date.now() + 1500; // 1.5秒
+          needHurtTimer = true;
+        }
+        if (currentHpO < (prevHpO ?? Infinity)) {
+          state.hurtUntilO = Date.now() + 1500; // 1.5秒
+          needHurtTimer = true;
+        }
+      }
+      
       render();
+      
+      // 触发hurt立绘后自动恢复
+      if (needHurtTimer) {
+        setTimeout(() => {
+          const now = Date.now();
+          if (now >= state.hurtUntilMe && now >= state.hurtUntilO) {
+            render();
+          } else if (now >= state.hurtUntilMe || now >= state.hurtUntilO) {
+            render();
+          }
+        }, 1600);
+      }
       break;
     case "logEntry":
       appendLog(msg.entry);
       break;
     case "gameOver":
       state.view = msg.view;
+      state.gameOver = true;
+      state.gameOverWinner = msg.winner || null;
       render();
       showBanner(`游戏结束！${msg.winner === state.you ? "你赢了" : "你输了"}`);
       break;
     case "decisionRequest":
-      state.decision = { prompt: msg.prompt, options: msg.options };
+      state.decision = { prompt: msg.prompt, options: msg.options, range: msg.range };
       render();
       break;
     case "error":
@@ -279,8 +325,62 @@ const net = {
 
 function render(): void {
   if (!state.roomId) return renderLobby();
-  if (!state.view) return renderCharacterSelect();
-  return renderBattle();
+  if (state.gameOver) { renderGameOver(); return; }
+  if (!state.view) { renderCharacterSelect(); return; }
+  renderBattle();
+}
+
+function renderGameOver(): void {
+  const v = state.view!;
+  const winner = state.gameOverWinner!;
+  const my = state.you!;
+  const fo = my === "A" ? "B" : "A";
+  const me = v.players[my];
+  const opp = v.players[fo];
+  
+  const myWon = winner === my;
+  const myState: PortraitState = myWon ? "win" : "lose";
+  const oppState: PortraitState = myWon ? "lose" : "win";
+  
+  app.innerHTML = `
+    <div class="gameover-screen">
+      <div class="gameover-header">
+        <h1 class="gameover-title">${myWon ? "🎉 胜利！" : "💔 失败"}</h1>
+      </div>
+      <div class="gameover-portraits">
+        <div class="gameover-char ${myWon ? "winner" : "loser"}">
+          <div class="gameover-portrait-box">${getPortraitOrFallback(me.characterId, myState)}</div>
+          <div class="gameover-name">${me.characterName}（你）</div>
+          <div class="gameover-label">${myWon ? "胜利" : "失败"}</div>
+        </div>
+        <div class="gameover-vs">VS</div>
+        <div class="gameover-char ${myWon ? "loser" : "winner"}">
+          <div class="gameover-portrait-box">${getPortraitOrFallback(opp.characterId, oppState)}</div>
+          <div class="gameover-name">${opp.characterName}（对手）</div>
+          <div class="gameover-label">${myWon ? "失败" : "胜利"}</div>
+        </div>
+      </div>
+      <div class="gameover-actions">
+        <button id="btn-back-lobby" class="btn-primary">返回大厅</button>
+      </div>
+    </div>`;
+  
+  const btnBack = document.getElementById("btn-back-lobby");
+  if (btnBack) {
+    btnBack.onclick = () => {
+      state.view = null;
+      state.gameOver = false;
+      state.gameOverWinner = null;
+      state.chosen = { A: null, B: null };
+      state.tempCharSelect = null;
+      state.selectedCard = null;
+      state.selectedSkills.clear();
+      state.submitted = false;
+      state.waiting = false;
+      state.decision = null;
+      render();
+    };
+  }
 }
 
 function renderLobby(): void {
@@ -332,7 +432,7 @@ function renderCharacterSelect(): void {
           .map(
             (c) => `
           <div class="char-card ${state.tempCharSelect === c.id ? "sel" : ""}" data-id="${c.id}">
-            <div class="char-portrait">[立绘]</div>
+            <div class="char-portrait">${getPortraitOrFallback(c.id, "normal")}</div>
             <div class="char-name">${c.name}</div>
             <div class="char-hp">HP ${c.hp}</div>
             <div class="char-skills">${c.skills.map((s) => s.name).join(" / ")}</div>
@@ -375,6 +475,30 @@ function renderBattle(): void {
   const existingLog = document.getElementById("log");
   const logHtml = existingLog ? existingLog.innerHTML : "";
 
+  // 计算立绘状态
+  const myHpPct = Math.round((me.hp / me.maxHp) * 100);
+  const oppHpPct = Math.round((opp.hp / opp.maxHp) * 100);
+  const now = Date.now();
+  
+  // 根据伤害日志触发hurt立绘
+  if (logHtml !== logHtml) {
+    // 检测到新的伤害日志
+  }
+  
+  let myPortraitState: PortraitState = "battle";
+  let oppPortraitState: PortraitState = "battle";
+  
+  // 低血量立绘
+  if (myHpPct <= 50) myPortraitState = "lowhp";
+  if (oppHpPct <= 50) oppPortraitState = "lowhp";
+  
+  // 受伤立绘（在指定时间内显示）
+  if (now < state.hurtUntilMe) myPortraitState = "hurt";
+  if (now < state.hurtUntilO) oppPortraitState = "hurt";
+  
+  const myPortraitHtml = getPortraitOrFallback(me.characterId, myPortraitState);
+  const oppPortraitHtml = getPortraitOrFallback(opp.characterId, oppPortraitState);
+
   const skillsHtml = (me.skills ?? [])
     .map((s) => {
       const active = state.selectedSkills.has(s.id);
@@ -408,9 +532,6 @@ function renderBattle(): void {
       </div>`)
     .join("");
 
-  const myHpPct = Math.round((me.hp / me.maxHp) * 100);
-  const oppHpPct = Math.round((opp.hp / opp.maxHp) * 100);
-
   const myBuffs = me.buffs.map((b) => b.name).join(", ") || "无";
   const oppBuffs = opp.buffs.map((b) => b.name).join(", ") || "无";
 
@@ -425,13 +546,20 @@ function renderBattle(): void {
 
   app.innerHTML = `
     <div class="battle-screen">
-      <div class="battle-main">
+      <div class="battle-portrait-side portrait-left">
+        <div class="portrait-large portrait-me">
+          <div class="portrait-large-box ${myPortraitState === "hurt" ? "hurt" : ""} ${myPortraitState === "lowhp" ? "lowhp" : ""}">${myPortraitHtml}</div>
+          <div class="portrait-name-tag">${me.characterName}</div>
+        </div>
+      </div>
+
+      <div class="battle-center">
         <div class="hp-bars">
-          <div class="hp-bar hp-me">
+          <div class="hp-bar hp-me" id="hp-bar-me">
             <div class="hp-label"><span class="hp-name">${me.characterName}（你）</span><span class="hp-num">${me.hp} / ${me.maxHp}</span></div>
             <div class="hp-track"><div class="hp-fill" style="width:${myHpPct}%"></div></div>
           </div>
-          <div class="hp-bar hp-foe">
+          <div class="hp-bar hp-foe" id="hp-bar-foe">
             <div class="hp-label"><span class="hp-name">${opp.characterName}（对手）</span><span class="hp-num">${opp.hp} / ${opp.maxHp}</span></div>
             <div class="hp-track"><div class="hp-fill" style="width:${oppHpPct}%"></div></div>
           </div>
@@ -470,6 +598,13 @@ function renderBattle(): void {
         </div>
       </div>
 
+      <div class="battle-portrait-side portrait-right">
+        <div class="portrait-large portrait-foe">
+          <div class="portrait-large-box ${oppPortraitState === "hurt" ? "hurt" : ""} ${oppPortraitState === "lowhp" ? "lowhp" : ""}">${oppPortraitHtml}</div>
+          <div class="portrait-name-tag">${opp.characterName}</div>
+        </div>
+      </div>
+
       <div class="battle-sidebar">
         <div class="side-panel status-panel">
           <h3>回合状态</h3>
@@ -497,7 +632,7 @@ function renderBattle(): void {
         </div>
       </div>
 
-      ${state.showSkillPanel ? renderSkillPanel(my, opp) : ""}
+      ${state.showSkillPanel ? renderSkillPanel(me, opp) : ""}
       ${state.decision ? renderDecision(state.decision) : ""}
     </div>`;
 
@@ -563,7 +698,9 @@ function renderBattle(): void {
 }
 
 function renderSkillPanel(me: GameView["players"]["A"], opp: GameView["players"]["A"]): string {
-  console.log("[renderSkillPanel] me.skills:", me.skills, "opp.skills:", opp.skills);
+  const mySkills = me.skills || [];
+  const oppSkills = opp.skills || [];
+  
   const skillCard = (s: { id: string; name: string; text: string; passive?: boolean; cooldown: number }, owner: "me" | "foe") => `
     <div class="skill-card ${owner}">
       <div class="skill-name">${s.name}${s.passive ? '<span class="passive">被动</span>' : ""}</div>
@@ -571,8 +708,12 @@ function renderSkillPanel(me: GameView["players"]["A"], opp: GameView["players"]
       <div class="skill-text">${s.text}</div>
     </div>`;
 
-  const mySkillsHtml = me.skills?.map((s) => skillCard(s, "me")).join("") || "<p>无技能数据</p>";
-  const oppSkillsHtml = opp.skills?.map((s) => skillCard(s, "foe")).join("") || "<p>无技能数据</p>";
+  const mySkillsHtml = mySkills.length > 0 
+    ? mySkills.map((s) => skillCard(s, "me")).join("") 
+    : "<p style='opacity:0.6;'>暂无技能</p>";
+  const oppSkillsHtml = oppSkills.length > 0 
+    ? oppSkills.map((s) => skillCard(s, "foe")).join("") 
+    : "<p style='opacity:0.6;'>暂无技能</p>";
 
   return `
     <div class="skill-panel-overlay" id="skill-overlay">
@@ -583,11 +724,11 @@ function renderSkillPanel(me: GameView["players"]["A"], opp: GameView["players"]
         </div>
         <div class="skill-panel-body">
           <div class="skill-section">
-            <h4>你的技能</h4>
+            <h4>你的技能 (${mySkills.length})</h4>
             ${mySkillsHtml}
           </div>
           <div class="skill-section">
-            <h4>对手技能</h4>
+            <h4>对手技能 (${oppSkills.length})</h4>
             ${oppSkillsHtml}
           </div>
         </div>
@@ -595,7 +736,51 @@ function renderSkillPanel(me: GameView["players"]["A"], opp: GameView["players"]
     </div>`;
 }
 
-function renderDecision(d: { prompt: string; options: string[] }): string {
+function renderDecision(d: { prompt: string; options: string[]; range?: DecisionRange }): string {
+  const hasRange = d.range && d.range.min !== undefined;
+  const hasOptions = d.options && d.options.length > 0;
+  
+  if (hasRange && !hasOptions) {
+    const { min, max } = d.range!;
+    const buttons = [];
+    for (let i = min; i <= max; i++) {
+      buttons.push(`<button class="decision-option range-option" data-value="${i}">${i}</button>`);
+    }
+    return `
+      <div class="decision-overlay" id="decision-overlay">
+        <div class="decision-panel">
+          <div class="decision-title">需要做出选择</div>
+          <div class="decision-prompt">${d.prompt}</div>
+          <div class="decision-options range-options">
+            ${buttons.join("")}
+          </div>
+          <div class="decision-range-hint">请点击上方数字进行选择</div>
+        </div>
+      </div>`;
+  }
+  
+  if (hasRange && hasOptions) {
+    const { min, max } = d.range!;
+    const buttons = [];
+    for (let i = min; i <= max; i++) {
+      buttons.push(`<button class="decision-option range-option" data-value="${i}">${i}</button>`);
+    }
+    return `
+      <div class="decision-overlay" id="decision-overlay">
+        <div class="decision-panel">
+          <div class="decision-title">需要做出选择</div>
+          <div class="decision-prompt">${d.prompt}</div>
+          <div class="decision-options range-options">
+            ${buttons.join("")}
+          </div>
+          <div class="decision-divider">或选择：</div>
+          <div class="decision-options">
+            ${d.options.map((opt, i) => `<button class="decision-option" data-index="${i}">${opt}</button>`).join("")}
+          </div>
+        </div>
+      </div>`;
+  }
+  
   return `
     <div class="decision-overlay" id="decision-overlay">
       <div class="decision-panel">
@@ -756,6 +941,17 @@ document.addEventListener("click", (e) => {
   // 决策选择
   const optBtn = target.closest(".decision-option") as HTMLElement | null;
   if (optBtn && state.decision) {
+    // 检查是否是range数值选择
+    const rangeOption = optBtn.closest(".range-option");
+    if (rangeOption) {
+      const value = parseInt(optBtn.dataset.value ?? "0", 10);
+      state.decision = null;
+      net.send({ type: "decision", value: value });
+      render();
+      return;
+    }
+    
+    // 普通选项
     const idx = parseInt(optBtn.dataset.index ?? "0", 10);
     state.decision = null;
     net.send({ type: "decision", value: idx });

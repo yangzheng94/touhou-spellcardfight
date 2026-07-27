@@ -12,6 +12,7 @@ import {
   negateEffect,
   cardPowerOf,
   transferNegativeEffects,
+  requestDecision,
 } from "../effects.js";
 import { addBuff, consumeTrigger } from "../buffs.js";
 
@@ -85,13 +86,14 @@ export const aya: Character = {
       text: "可提升1至8点威力，此后等量的回合中每回合符卡威力-1",
       tags: ["buff"],
       script: {
-        power: (ec) => {
-          const n = ec.ctx.decide({
-            player: ec.self,
-            prompt: "幻想风靡：提升多少点威力(1-8)？",
-            options: [],
-            range: { min: 1, max: 8 },
-          });
+        power: async (ec) => {
+          const n = await requestDecision(
+            ec,
+            ec.self,
+            "幻想风靡：提升多少点威力(1-8)？",
+            [],
+            { min: 1, max: 8 },
+          );
           addPower(ec, n);
           addBuff(ec, {
             id: "aya-musou-decay",
@@ -192,13 +194,14 @@ export const aya: Character = {
       text: "造成5至10点 伤害，超出5的部分会让自己在接下来等量的回合受到一点生命流失",
       tags: ["drain"],
       script: {
-        damage: (ec) => {
-          const n = ec.ctx.decide({
-            player: ec.self,
-            prompt: "鸟居旋风：造成多少点伤害(5-10)？",
-            options: [],
-            range: { min: 5, max: 10 },
-          });
+        damage: async (ec) => {
+          const n = await requestDecision(
+            ec,
+            ec.self,
+            "鸟居旋风：造成多少点伤害(5-10)？",
+            [],
+            { min: 5, max: 10 },
+          );
           dealPhysical(ec, n);
           const excess = n - 5;
           if (excess > 0) {

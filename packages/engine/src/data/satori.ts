@@ -1,5 +1,5 @@
 import type { Character } from "../types.js";
-import { addPower, dealSpell, heal, cardPowerOf, multTakenDamage } from "../effects.js";
+import { addPower, dealSpell, heal, cardPowerOf, multTakenDamage, requestDecision } from "../effects.js";
 import { addBuff, setFlag, getFlag } from "../buffs.js";
 
 /**
@@ -51,12 +51,13 @@ export const satori: Character = {
       passive: false,
       declaredAtTurnStart: true,
       script: {
-        damage: (ec) => {
-          const i = ec.ctx.decide({
-            player: ec.self,
-            prompt: "孤影悄然：回复2HP 或 产生1法术？",
-            options: ["回复2HP", "产生1点法术伤害"],
-          });
+        turnStart: async (ec) => {
+          const i = await requestDecision(
+            ec,
+            ec.self,
+            "孤影悄然：回复2HP 或 产生1法术？",
+            ["回复2HP", "产生1点法术伤害"],
+          );
           if (i === 0) heal(ec, 2);
           else dealSpell(ec, 1);
         },
@@ -228,13 +229,14 @@ export const satori: Character = {
       text: "本回合可选择造成双方符卡威力差2倍的法术伤害，或回复双方符卡威力差2倍的HP",
       tags: ["spell-damage", "heal"],
       script: {
-        damage: (ec) => {
+        turnStart: async (ec) => {
           const diff = Math.abs(cardPowerOf(ec, ec.self) - cardPowerOf(ec, ec.foe)) * 2;
-          const i = ec.ctx.decide({
-            player: ec.self,
-            prompt: "水色孪晶：造成法术 或 回复？",
-            options: [`造成${diff}法术伤害`, `回复${diff}HP`],
-          });
+          const i = await requestDecision(
+            ec,
+            ec.self,
+            "水色孪晶：造成法术 或 回复？",
+            [`造成${diff}法术伤害`, `回复${diff}HP`],
+          );
           if (i === 0) dealSpell(ec, diff);
           else heal(ec, diff);
         },

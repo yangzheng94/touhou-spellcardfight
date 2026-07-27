@@ -81,6 +81,7 @@ export interface Buff {
   remainingTriggers: number; // 剩余触发次数（-1 表示不限）
   script: EffectScript; // 每回合注册钩子
   data?: Record<string, number>; // buff 自身携带的数值
+  activateOnCreate?: boolean; // 当回合立即生效（默认 false，下回合开始才触发）
 }
 
 /** 单个玩家的运行时状态 */
@@ -198,8 +199,8 @@ export interface TurnContext {
 
   rng: Rng;
   log: (entry: Omit<LogEntry, "turn">) => void;
-  /** 请求玩家决策（可选效果），MVP 阶段由调用方注入解析器。 */
-  decide: (req: DecisionRequest) => number;
+  /** 请求玩家决策（可选效果），MVP 阶段由调用方注入解析器。支持同步或异步返回。 */
+  decide: (req: DecisionRequest) => number | Promise<number>;
 }
 
 // ---------------------------------------------------------------------------
@@ -225,8 +226,9 @@ export interface EffectContext {
 /**
  * 效果脚本：为若干阶段注册处理函数。
  * 通过组合原子效果（effects.ts）或直接写 handler 表达符卡/技能/ buff。
+ * 支持同步或异步返回（用于需要等待玩家决策的场景）。
  */
-export type EffectScript = Partial<Record<Phase, (ec: EffectContext) => void>>;
+export type EffectScript = Partial<Record<Phase, (ec: EffectContext) => unknown | Promise<unknown>>>;
 
 // ---------------------------------------------------------------------------
 // 玩家决策请求（「可选择」类效果）

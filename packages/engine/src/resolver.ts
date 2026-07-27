@@ -113,10 +113,12 @@ export async function resolveTurn(
   const order = prio.order;
 
   // 收集效果源（buff / 技能 不可被无效；符卡可被无效）。
+  // 过滤掉本回合新创建且无 activateOnCreate 的 buff，实现「从下回合开始生效」
   const collectSources = (): EffectSource[] => {
     const sources: EffectSource[] = [];
     for (const p of order) {
       for (const b of state.players[p].buffs) {
+        if (b.createdTurn === turn && !b.activateOnCreate) continue;
         sources.push({ owner: p, script: b.script, negatable: false, kind: "buff" });
       }
       for (const s of activeSkills[p]) {
@@ -176,9 +178,9 @@ export async function resolveTurn(
     }
   };
 
-  const baseSources = collectSources();
   const withCards = (): EffectSource[] => {
-    const arr = [...baseSources];
+    // 动态收集所有 buff（包括在回合中添加的新 buff）
+    const arr = collectSources();
     for (const p of order) {
       const cs = cardSource(p);
       if (cs) arr.push(cs);
@@ -188,6 +190,7 @@ export async function resolveTurn(
 
   // 1. turnStart —— buff / 技能 / 符卡
   await runPhase("turnStart", withCards());
+  resolvePendingWaves(ctx, state, log);
 
   // 2. priority —— 仅处理无效/反转类（这些效果在其 script 的 priority 阶段实现）
   await runPhase("priority", withCards());
@@ -222,14 +225,26 @@ export async function resolveTurn(
 
   // 6. 结算 pending（分波，支持「造成伤害后追加」）
   resolvePendingWaves(ctx, state, log);
+  if (state.winner) {
+    state.rngState = rng.getState();
+    return state;
+  }
 
   // 7. apply —— 伤害结算后的追加触发（半人半灵等）
   await runPhase("apply", withCards());
   resolvePendingWaves(ctx, state, log);
+  if (state.winner) {
+    state.rngState = rng.getState();
+    return state;
+  }
 
   // 8. turnEnd
   await runPhase("turnEnd", withCards());
   resolvePendingWaves(ctx, state, log);
+  if (state.winner) {
+    state.rngState = rng.getState();
+    return state;
+  }
 
   // 彼岸剑：回合结束时可令本回合对抗重复一次（仅重复威力对抗产生的物理伤害）。
   if (ctx.repeatClash && ctx.clashDamage) {
@@ -237,6 +252,10 @@ export async function resolveTurn(
     log("turnEnd", `重复本回合对抗：${cd.source} 对 ${cd.target} 再造成 ${cd.amount} 物理`);
     ctx.pending.push({ type: "physical", amount: cd.amount, source: cd.source, target: cd.target });
     resolvePendingWaves(ctx, state, log);
+    if (state.winner) {
+      state.rngState = rng.getState();
+      return state;
+    }
   }
 
   // 9. 收尾：buff 计时、快照、胜负
@@ -277,6 +296,8 @@ function resolvePendingWaves(
     const wave = ctx.pending;
     ctx.pending = [];
     applyDamageWave(ctx, state, wave, log);
+    checkWin(state);
+    if (state.winner) break;
   }
 }
 
@@ -307,7 +328,7 @@ function applyDamageWave(
         continue;
       }
       const p = state.players[pd.target];
-      p.hp -= pd.amount;
+      p.hp = Math.max(0, p.hp - pd.amount);
       log("apply", `${charName(pd.target)}（${pd.target}）生命流失 ${pd.amount} → ${p.hp}`, undefined, "hp");
     }
   }
@@ -377,7 +398,7 @@ function applyDamageWave(
       if (dmg.spell > 0) {
         log("apply", `${charName(t)}（${t}）受到 ${dmg.spell} 法术伤害（来自 ${charName(source)}）`, undefined, "spell");
       }
-      p.hp -= total;
+      p.hp = Math.max(0, p.hp - total);
       ctx.dealt[t].physical += dmg.physical;
       ctx.dealt[t].spell += dmg.spell;
       if (dmg.spell > 0) state.stats.maxSpellDamage = Math.max(state.stats.maxSpellDamage, dmg.spell);
@@ -411,7 +432,7 @@ function applyDamageWave(
     }
     const p = state.players[s];
     const before = p.hp;
-    p.hp -= total;
+    p.hp = Math.max(0, p.hp - total);
     if (rb.physical > 0) log("apply", `${charName(s)}（${s}）受到反弹物理伤害 ${rb.physical}`, undefined, "physical");
     if (rb.spell > 0) log("apply", `${charName(s)}（${s}）受到反弹法术伤害 ${rb.spell}`, undefined, "spell");
     log("apply", `${charName(s)}（${s}）HP ${before} → ${p.hp}`, undefined, "hp");

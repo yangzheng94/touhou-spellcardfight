@@ -6,6 +6,7 @@ import {
   immune,
   negateEffect,
   cardPowerOf,
+  requestDecision,
 } from "../effects.js";
 import { addBuff } from "../buffs.js";
 
@@ -45,12 +46,13 @@ export const koishi: Character = {
       passive: false,
       declaredAtTurnStart: true,
       script: {
-        power: (ec) => {
-          const i = ec.ctx.decide({
-            player: ec.self,
-            prompt: "空想上的人格：选择目标",
-            options: ["己方威力+1", "对方威力+1", "己方威力-1", "对方威力-1"],
-          });
+        power: async (ec) => {
+          const i = await requestDecision(
+            ec,
+            ec.self,
+            "空想上的人格：选择目标",
+            ["己方威力+1", "对方威力+1", "己方威力-1", "对方威力-1"],
+          );
           if (i === 0) addPower(ec, 1, ec.self);
           else if (i === 1) addPower(ec, 1, ec.foe);
           else if (i === 2) addPower(ec, -1, ec.self);
@@ -61,13 +63,13 @@ export const koishi: Character = {
     {
       id: "koishi-hartmann",
       name: "哈德曼的妖怪少女",
-      text: "每三回合一次，本回合让对方打出一张由自己选择的符卡",
+      text: "每三回合一次，本回合对方无法使用符卡效果（威力对抗照常进行）",
       cooldown: 3,
       passive: false,
       declaredAtTurnStart: true,
       script: {
         turnStart: (ec) => {
-          ec.ctx.state.players[ec.self].flags["_force_opponent_card"] = true;
+          ec.ctx.castNegated[ec.foe] = true;
         },
       },
     },
@@ -209,13 +211,14 @@ export const koishi: Character = {
       text: "本回合可选择己方提升双方符卡威力差2倍的威力，或降低对方双方符卡威力差2倍的威力",
       tags: [],
       script: {
-        power: (ec) => {
+        power: async (ec) => {
           const diff = Math.abs(cardPowerOf(ec, ec.self) - cardPowerOf(ec, ec.foe)) * 2;
-          const i = ec.ctx.decide({
-            player: ec.self,
-            prompt: "被厌恶者的哲学：己方提升 或 降低对方？",
-            options: [`己方威力+${diff}`, `对方威力-${diff}`],
-          });
+          const i = await requestDecision(
+            ec,
+            ec.self,
+            "被厌恶者的哲学：己方提升 或 降低对方？",
+            [`己方威力+${diff}`, `对方威力-${diff}`],
+          );
           if (i === 0) addPower(ec, diff);
           else addPower(ec, -diff, ec.foe);
         },

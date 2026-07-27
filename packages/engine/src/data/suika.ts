@@ -8,6 +8,7 @@ import {
   addAbsorb,
   cardPowerOf,
   hpOf,
+  requestDecision,
 } from "../effects.js";
 import { addBuff, getRes, setRes, getFlag, setFlag } from "../buffs.js";
 
@@ -110,12 +111,13 @@ export const suika: Character = {
       text: "本回合可将符卡威力翻倍，若未击杀对方则己方死亡",
       tags: [],
       script: {
-        power: (ec) => {
-          const i = ec.ctx.decide({
-            player: ec.self,
-            prompt: "三步必杀：是否将符卡威力翻倍？（未击杀对方则己方死亡）",
-            options: ["是", "否"],
-          });
+        power: async (ec) => {
+          const i = await requestDecision(
+            ec,
+            ec.self,
+            "三步必杀：是否将符卡威力翻倍？（未击杀对方则己方死亡）",
+            ["是", "否"],
+          );
           if (i === 0) {
             multPower(ec, 2);
             setFlag(ec, ec.self, "_sanpo_active", true);

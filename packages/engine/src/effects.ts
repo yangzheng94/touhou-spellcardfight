@@ -175,14 +175,16 @@ export function cardPowerOf(ec: EffectContext, who: PlayerId): number {
   return ec.ctx.cards[who]?.power ?? 0;
 }
 
-/** 请求玩家决策。返回选项索引（0-based）。 */
-export function requestDecision(
+/** 请求玩家决策。返回选项索引（0-based）或范围内的数值。支持同步或异步返回。 */
+export async function requestDecision(
   ec: EffectContext,
   player: PlayerId,
   prompt: string,
   options: string[],
-): number {
-  return ec.ctx.decide({ player, prompt, options });
+  range?: { min: number; max: number },
+): Promise<number> {
+  const result = ec.ctx.decide({ player, prompt, options, range });
+  return await result;
 }
 
 // ---- 负面效果转移（当日截稿） ----

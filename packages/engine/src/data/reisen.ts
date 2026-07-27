@@ -24,30 +24,51 @@ export const reisen: Character = {
     {
       id: "reisen-seiran",
       name: "晴岚的红眼",
-      text: "符卡能力触发时，可不触发能力而将其延后至下一回合生效",
+      text: "被动：当自己的符卡效果触发时，可选择将其延后至下一回合生效",
       cooldown: 1,
       passive: true,
       declaredAtTurnStart: false,
       script: {
-        turnStart: (ec) => {
-          // 如果上一回合选择延后，本回合激活被延后的效果
-          const heldCardId = getRes(ec, ec.self, "_seiran_held_card");
-          if (heldCardId > 0) {
-            setFlag(ec, ec.self, "_seiran_activate", true);
-            setRes(ec, ec.self, "_seiran_held_card", 0);
+        turnStart: async (ec) => {
+          const heldCardId = ec.ctx.state.players[ec.self].flags["_seiran_card_id"];
+          if (heldCardId) {
+            const char = ec.ctx.state.players[ec.self].character;
+            const card = char.cards.find((c) => c.id === heldCardId);
+            if (card?.script) {
+              const choice = await requestDecision(
+                ec,
+                ec.self,
+                `晴岚的红眼：是否触发延后的「${card.name}」？`,
+                ["立即触发", "继续等待"],
+              );
+              if (choice === 0) {
+                ec.ctx.cards[ec.self] = card;
+                ec.ctx.effectNegated[ec.self] = true;
+                ec.ctx.log({ type: "info", msg: `晴岚的红眼：执行延后的「${card.name}」效果` });
+                if (card.script.priority) await card.script.priority(ec);
+                if (card.script.power) await card.script.power(ec);
+                if (card.script.clash) await card.script.clash(ec);
+                if (card.script.damage) await card.script.damage(ec);
+                if (card.script.apply) await card.script.apply(ec);
+                if (card.script.turnEnd) await card.script.turnEnd(ec);
+                ec.ctx.state.players[ec.self].flags["_seiran_card_id"] = "";
+              }
+            }
           }
         },
-        priority: (ec) => {
-          // 如果本回合选择延后当前符卡效果
-          if (getFlag(ec, ec.self, "_seiran_hold")) {
-            const card = ec.ctx.cards[ec.self];
-            if (card) {
-              setRes(ec, ec.self, "_seiran_held_card", 1);
-              // 记录被延后的符卡ID，以便下回合模拟其效果
-              setRes(ec, ec.self, "_seiran_card_id", 1);
-            }
-            setFlag(ec, ec.self, "_seiran_hold", false);
-            // 临时无效化本回合自己的符卡效果
+        priority: async (ec) => {
+          const card = ec.ctx.cards[ec.self];
+          if (!card) return;
+          // 如果已有延后的符卡，不再询问
+          if (ec.ctx.state.players[ec.self].flags["_seiran_card_id"]) return;
+          const choice = await requestDecision(
+            ec,
+            ec.self,
+            `是否将「${card.name}」的效果延后至后续回合？`,
+            ["延后", "正常使用"],
+          );
+          if (choice === 0) {
+            ec.ctx.state.players[ec.self].flags["_seiran_card_id"] = card.id;
             ec.ctx.effectNegated[ec.self] = true;
           }
         },
@@ -250,14 +271,14 @@ export const reisen: Character = {
       text: "己方可受到当前HP一半的法术伤害，来使本回合的符卡威力翻倍",
       tags: [],
       script: {
-        power: (ec) => {
-          const choice = requestDecision(
+        power: async (ec) => {
+          const choice = await requestDecision(
             ec,
             ec.self,
             "月狂爆破：是否承受当前HP一半的法术伤害来使威力翻倍？",
-            ["是", "否"],
+            ["否", "是"],
           );
-          if (choice === 0) {
+          if (choice === 1) {
             multPower(ec, 2);
             setFlag(ec, ec.self, "_bakuha_active", true);
           }
@@ -302,12 +323,13 @@ export const reisen: Character = {
       text: "可选择对对方造成5点法术伤害，或回复5点HP",
       tags: ["spell-damage", "heal"],
       script: {
-        apply: (ec) => {
-          const i = ec.ctx.decide({
-            player: ec.self,
-            prompt: "心灵烟花：造成5法术 或 回复5HP？",
-            options: ["造成5点法术伤害", "回复5点HP"],
-          });
+        damage: async (ec) => {
+          const i = await requestDecision(
+            ec,
+            ec.self,
+            "心灵烟花：造成5法术 或 回复5HP？",
+            ["造成5点法术伤害", "回复5点HP"],
+          );
           if (i === 0) dealSpell(ec, 5);
           else heal(ec, 5);
         },
