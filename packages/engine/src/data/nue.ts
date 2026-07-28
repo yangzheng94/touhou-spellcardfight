@@ -38,6 +38,8 @@ export const nue: Character = {
               owner: ec.self,
               turns: 2,
               triggers: 1,
+              text: "下回合免疫物理伤害",
+              category: "immune-reflect-absorb",
               script: { damage: (e) => (e.ctx.damageConfig[e.self].physical.immune = true) },
             });
           if (ec.ctx.dealt[ec.self].spell > 0)
@@ -47,6 +49,8 @@ export const nue: Character = {
               owner: ec.self,
               turns: 2,
               triggers: 1,
+              text: "下回合免疫法术伤害",
+              category: "immune-reflect-absorb",
               script: { damage: (e) => (e.ctx.damageConfig[e.self].spell.immune = true) },
             });
         },
@@ -99,6 +103,8 @@ export const nue: Character = {
             name: "平安黑云",
             owner: ec.self,
             turns: ec.ctx.rng.d(3) + 1,
+            text: "接下来 1~3 回合对方符卡威力 -3",
+            category: "power",
             script: { power: (e) => addPower(e, -3, e.foe) },
           }),
       },
@@ -116,6 +122,8 @@ export const nue: Character = {
             name: "蛇行表演",
             owner: ec.self,
             turns: ec.ctx.rng.d(3) + 1,
+            text: "接下来 1~3 回合对方符卡效果无效",
+            category: "negate",
             script: { priority: (e) => negateEffect(e, e.foe) },
           }),
       },
@@ -133,6 +141,8 @@ export const nue: Character = {
             name: "红色UFO",
             owner: ec.self,
             turns: ec.ctx.rng.d(5) + 1,
+            text: "接下来 1~5 回合对方受到伤害翻倍",
+            category: "damage-taken",
             script: {
               damage: (e) => {
                 e.ctx.damageConfig[e.foe].physical.mults.push(2);
@@ -155,6 +165,8 @@ export const nue: Character = {
             name: "蓝色UFO",
             owner: ec.self,
             turns: ec.ctx.rng.d(5) + 1,
+            text: "接下来 1~5 回合己方受到伤害减半",
+            category: "damage-taken",
             script: {
               damage: (e) => {
                 e.ctx.damageConfig[e.self].physical.mults.push(0.5);
@@ -177,6 +189,8 @@ export const nue: Character = {
             name: "绿色UFO",
             owner: ec.self,
             turns: ec.ctx.rng.d(3) + 1,
+            text: "接下来 1~3 回合己方 HP 不会改变",
+            category: "hp-lock",
             script: { turnStart: (e) => lockHp(e, e.self) },
           }),
       },

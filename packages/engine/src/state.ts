@@ -2,13 +2,21 @@ import type { Character, GameState, PlayerId, PlayerState } from "./types.js";
 import { createRng } from "./rng.js";
 
 export function createPlayerState(id: PlayerId, character: Character): PlayerState {
+  // 规则：非被动技能在战斗开始时即进入冷却。
+  // 将 lastUsedTurn 初始化为 0，使得冷却 N 的技能在第 N、2N... 回合首次可用。
+  const skillLastUsedTurn: Record<string, number> = {};
+  for (const s of character.skills) {
+    if (!s.passive) {
+      skillLastUsedTurn[s.id] = 0;
+    }
+  }
   return {
     id,
     character,
     hp: character.hp,
     maxHp: character.hp,
     usedCardIds: [],
-    skillLastUsedTurn: {},
+    skillLastUsedTurn,
     buffs: [],
     resources: {},
     flags: {},

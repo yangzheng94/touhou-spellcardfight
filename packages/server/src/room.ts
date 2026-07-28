@@ -328,14 +328,22 @@ function handle(conn: Conn, msg: ClientMessage): void {
       if (!conn.roomId || !conn.seat) return;
       const room = rooms.get(conn.roomId);
       if (!room || !room.state) return;
-      
-      const opp = conn.seat === "A" ? "B" : "A";
+
+      const seat = conn.seat;
+      const opp = seat === "A" ? "B" : "A";
+
+      // 觉/圣娅的「预知」：拥有 foresight 的一方必须等对手先提交，才能看到对方选择。
+      const selfHasForesight = room.state.players[seat].flags["foresight"] === true;
+      if (selfHasForesight && !room.seats[opp].pendingMove) {
+        return send(conn.ws, { type: "error", message: "请先等待对方选择符卡" });
+      }
+
+      // 保存当前玩家的 move。
+      room.seats[seat].pendingMove = { cardId: msg.cardId, skillIds: msg.skillIds };
+
+      // 若对手拥有 foresight 且尚未提交，则向对手 reveal 本方的选择。
       const oppHasForesight = room.state.players[opp].flags["foresight"] === true;
-      
       if (oppHasForesight && !room.seats[opp].pendingMove) {
-        // 敌方有获知且尚未提交：通知敌方对方的已选符卡
-        room.seats[conn.seat].pendingMove = { cardId: msg.cardId, skillIds: msg.skillIds };
-        // 标记获知已触发，防止下一回合重复
         room.state.players[opp].flags["_foresight_triggered"] = true;
         room.state.players[opp].flags["foresight"] = false;
         send(room.seats[opp].ws!, {
@@ -344,13 +352,13 @@ function handle(conn: Conn, msg: ClientMessage): void {
           opponentSkills: msg.skillIds,
         });
         send(conn.ws, { type: "waitingForOpponent" });
+        break;
+      }
+
+      if (room.bothMoved()) {
+        void room.resolveMoves();
       } else {
-        room.seats[conn.seat].pendingMove = { cardId: msg.cardId, skillIds: msg.skillIds };
-        if (room.bothMoved()) {
-          void room.resolveMoves();
-        } else {
-          send(conn.ws, { type: "waitingForOpponent" });
-        }
+        send(conn.ws, { type: "waitingForOpponent" });
       }
       break;
     }
@@ -372,6 +380,27 @@ function handle(conn: Conn, msg: ClientMessage): void {
       room.seats.A.pendingMove = null;
       room.seats.B.pendingMove = null;
       room.broadcast(rosterMessage());
+      break;
+    }
+    case "leaveRoom": {
+      if (!conn.roomId || !conn.seat) return;
+      const room = rooms.get(conn.roomId);
+      if (room) {
+        const seat = conn.seat;
+        const opp = seat === "A" ? "B" : "A";
+        room.seats[seat].ws = null;
+        room.seats[seat].characterId = null;
+        room.seats[seat].pendingMove = null;
+        room.seats[seat].pendingDecision = null;
+        room.send(opp, { type: "opponentLeft" });
+        // 若房间已空则删除
+        if (!room.seats.A.ws && !room.seats.B.ws) {
+          rooms.delete(conn.roomId);
+        }
+      }
+      send(conn.ws, rosterMessage());
+      conn.roomId = null;
+      conn.seat = null;
       break;
     }
   }

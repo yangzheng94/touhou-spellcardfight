@@ -64,7 +64,8 @@ export type ClientMessage =
   | { type: "selectCharacter"; characterId: string }
   | { type: "submitMove"; cardId: string | null; skillIds: string[] }
   | { type: "decision"; value: number }
-  | { type: "rematch" };
+  | { type: "rematch" }
+  | { type: "leaveRoom" };
 
 /** 服务器 → 客户端 */
 export type ServerMessage =

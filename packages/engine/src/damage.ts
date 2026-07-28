@@ -18,6 +18,7 @@ export function newSideDamageConfig(): SideDamageConfig {
     physical: newDamageMods(),
     spell: newDamageMods(),
     absorb: 0,
+    totalAtMost: null,
   };
 }
 

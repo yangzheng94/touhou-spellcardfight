@@ -296,6 +296,11 @@ ws.onmessage = (ev) => {
     case "error":
       showBanner(msg.message);
       break;
+    case "opponentLeft":
+      showBanner("对手已离开房间");
+      resetToLobby();
+      render();
+      break;
     default:
       break;
   }
@@ -368,19 +373,28 @@ function renderGameOver(): void {
   const btnBack = document.getElementById("btn-back-lobby");
   if (btnBack) {
     btnBack.onclick = () => {
-      state.view = null;
-      state.gameOver = false;
-      state.gameOverWinner = null;
-      state.chosen = { A: null, B: null };
-      state.tempCharSelect = null;
-      state.selectedCard = null;
-      state.selectedSkills.clear();
-      state.submitted = false;
-      state.waiting = false;
-      state.decision = null;
+      ws.send(JSON.stringify({ type: "leaveRoom" }));
+      resetToLobby();
       render();
     };
   }
+}
+
+function resetToLobby(): void {
+  state.roomId = null;
+  state.seat = null;
+  state.view = null;
+  state.gameOver = false;
+  state.gameOverWinner = null;
+  state.chosen = { A: null, B: null };
+  state.tempCharSelect = null;
+  state.selectedCard = null;
+  state.selectedSkills.clear();
+  state.submitted = false;
+  state.waiting = false;
+  state.decision = null;
+  state.oppSelectedCard = null;
+  state.oppSelectedSkills = [];
 }
 
 function renderLobby(): void {
@@ -521,7 +535,7 @@ function renderBattle(): void {
           <div class="hc-text">${c.text}</div>
         </div>`;
     })
-    .join("");
+    .join("") || '<div class="hand-empty">已无可用符卡</div>';
 
   const usedHtml = myUsed
     .map((c) => `
@@ -579,7 +593,7 @@ function renderBattle(): void {
           <div id="log" class="log">${logHtml || '<div class="log-empty">战斗即将开始...</div>'}</div>
           <div class="log-footer">
             <span class="status-line">
-              ${state.submitted ? "已提交，等待对手…" : state.waiting ? "等待对手…" : state.oppSelectedCard ? `获知：敌方已选「${cardNameById(state.oppSelectedCard)}」，请做出你的选择` : "请选择一张符卡并确认"}
+              ${state.submitted ? "已提交，等待对手…" : state.waiting ? "等待对手…" : state.oppSelectedCard ? `获知：敌方已选「${cardNameById(state.oppSelectedCard)}」，请做出你的选择` : myHand.length === 0 ? "已无可用符卡，请结束回合" : "请选择一张符卡并确认"}
             </span>
           </div>
         </div>
@@ -593,7 +607,9 @@ function renderBattle(): void {
         </div>
 
         <div class="action-bar">
-          ${state.selectedCard && !state.submitted && !state.waiting ? `<button id="btn-confirm" class="btn-primary confirm-btn">确认打出</button>` : ""}
+          ${!state.submitted && !state.waiting && (state.selectedCard || myHand.length === 0)
+            ? `<button id="btn-confirm" class="btn-primary confirm-btn">${state.selectedCard ? "确认打出" : "确认结束回合"}</button>`
+            : ""}
           ${state.selectedCard && !state.submitted && !state.waiting ? `<button id="btn-cancel" class="btn-secondary cancel-btn">撤回重选</button>` : ""}
         </div>
       </div>
@@ -663,11 +679,14 @@ function renderBattle(): void {
   if (btnConfirm) {
     btnConfirm.onclick = () => {
       console.log("[btn-confirm] clicked, selectedCard:", state.selectedCard, "submitted:", state.submitted);
-      if (!state.selectedCard || state.submitted) return;
+      if (state.submitted) return;
+      const myHand = state.view!.hands[state.you!] ?? [];
+      const cardId = state.selectedCard;
+      if (cardId === null && myHand.length > 0) return;
       state.submitted = true;
       net.send({
         type: "submitMove",
-        cardId: state.selectedCard,
+        cardId,
         skillIds: [...state.selectedSkills],
       });
       render();

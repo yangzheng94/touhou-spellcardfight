@@ -54,7 +54,8 @@ export type ClientMessage =
   | { type: "selectCharacter"; characterId: string }
   | { type: "submitMove"; cardId: string | null; skillIds: string[] }
   | { type: "decision"; value: number }
-  | { type: "rematch" };
+  | { type: "rematch" }
+  | { type: "leaveRoom" };
 
 export interface LogEntry {
   turn: number;
@@ -74,4 +75,5 @@ export type ServerMessage =
   | { type: "turnResolved"; view: GameView; newLog: LogEntry[] }
   | { type: "decisionRequest"; prompt: string; options: string[]; range?: { min: number; max: number } }
   | { type: "opponentLeft" }
-  | { type: "gameOver"; winner: "A" | "B" | "draw"; view: GameView };
+  | { type: "gameOver"; winner: "A" | "B" | "draw"; view: GameView }
+  | { type: "foresightReveal"; opponentCard: string | null; opponentSkills: string[] };

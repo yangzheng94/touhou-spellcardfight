@@ -87,6 +87,8 @@ export const sagume: Character = {
             owner: ec.self,
             turns: 2,
             triggers: 1,
+            text: "下回合己方造成的物理伤害翻倍，法术伤害 x1.5",
+            category: "damage-taken",
             script: {
               clash: (e) => e.ctx.damageConfig[e.foe].physical.mults.push(2),
               damage: (e) => e.ctx.damageConfig[e.foe].spell.mults.push(1.5),
@@ -124,6 +126,8 @@ export const sagume: Character = {
             name: "兽性感染",
             owner: ec.self,
             turns: 2,
+            text: "接下来 2 回合双方所受伤害 +3",
+            category: "damage-taken",
             script: {
               damage: (e) => {
                 addTakenDamage(e, "A", "physical", 3);

@@ -17,6 +17,7 @@ import { reimu } from "./reimu.js";
 import { suika } from "./suika.js";
 import { sagume } from "./sagume.js";
 import { nue } from "./nue.js";
+import { patches } from "./patches.js";
 // import { sukuna } from "./sukuna.js"; // 暂时移除两面宿傩
 import { tokoyo } from "./tokoyo.js";
 
@@ -25,7 +26,7 @@ export const CHARACTERS: Character[] = [
   youmu, seija, aya, flandre, sakuya, cirno, reisen,
   yuuka, koishi, satori, patchouli, remilia,
   mystia, hata, reimu, suika,
-  sagume, nue, tokoyo,
+  sagume, nue, patches, tokoyo,
   // sukuna, // 暂时移除两面宿傩
 ];
 
@@ -35,6 +36,6 @@ export const CHARACTERS_BY_ID: Record<string, Character> = Object.fromEntries(
 
 export {
   youmu, seija, aya, flandre, sakuya, cirno, reisen, yuuka, koishi, satori, patchouli, remilia,
-  mystia, hata, reimu, suika, sagume, nue, tokoyo,
+  mystia, hata, reimu, suika, sagume, nue, patches, tokoyo,
   // sukuna, // 暂时移除两面宿傩
 };

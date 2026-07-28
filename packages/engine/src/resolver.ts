@@ -1,10 +1,12 @@
 import type {
   Buff,
+  BuffCategory,
   Card,
   DamageType,
   EffectContext,
   EffectScript,
   GameState,
+  LogEntry,
   PendingDamage,
   Phase,
   PlayerId,
@@ -60,7 +62,7 @@ export async function resolveTurn(
   const turn = state.turn;
   const rng = restoreRng(state.rngState);
 
-  const log = (phase: Phase | undefined, msg: string, data?: Record<string, unknown>, type?: "physical" | "spell" | "hp" | "buff" | "info") => {
+  const log = (phase: Phase | undefined, msg: string, data?: Record<string, unknown>, type?: LogEntry["type"]) => {
     state.log.push({ turn, phase, msg, data, type });
   };
 
@@ -107,9 +109,27 @@ export async function resolveTurn(
     }
   }
 
+  // 记录本回合双方打出的符卡与主动宣告的技能（含效果文本）。
+  for (const p of ["A", "B"] as PlayerId[]) {
+    const c = cards[p];
+    const declared = activeSkills[p].filter((s) => !s.passive);
+    const charName = state.players[p].character.name;
+    if (c) {
+      log("turnStart", `${charName}（${p}）打出符卡：${c.name}｜效果：${c.text}`, { cardId: c.id }, "info");
+    } else {
+      log("turnStart", `${charName}（${p}）打出符卡：无`, undefined, "info");
+    }
+    if (declared.length > 0) {
+      for (const s of declared) {
+        log("turnStart", `${charName}（${p}）宣告技能：${s.name}｜效果：${s.text}`, { skillId: s.id }, "info");
+      }
+    } else {
+      log("turnStart", `${charName}（${p}）宣告技能：无`, undefined, "info");
+    }
+  }
+
   // ---- 优先级裁定：先算处理顺序，随后 priority 阶段应用无效/反转 ----
   const prio = computePriorityOrder(cards.A, cards.B, rng);
-  log("priority", `优先级顺序: ${prio.order.join(" → ")}（先攻 ${prio.firstMover}）`, undefined, "info");
   const order = prio.order;
 
   // 收集效果源（buff / 技能 不可被无效；符卡可被无效）。
@@ -149,15 +169,15 @@ export async function resolveTurn(
    */
   const ecForWithTransfer = (owner: PlayerId, isCardEffect = false): EffectContext => {
     const base = ecFor(owner);
-    // 如果开启了负面效果转移，且当前是己方符卡的效果，则交换 self/foe
-    if (ctx.state.players[owner].flags["transfer_negative"] && owner === prio.firstMover) {
-      return { ctx, self: other(owner), foe: owner };
-    }
     // 作用对象反转：若对方被标记了_effect_reversed，则对方符卡的效果目标反转
     if (isCardEffect && ctx.state.players[owner].flags["_effect_reversed"]) {
       return { ctx, self: other(owner), foe: owner };
     }
-    return base;
+    // 当日截稿：己方符卡产生的负面 BUFF 转移给对方。
+    // 这里不交换 self/foe（避免把正面伤害也反转），只给 EffectContext 打上标记，
+    // 由 addBuff 在创建 self 类 BUFF 时把 owner 改为 foe。
+    const transferActive = isCardEffect && ctx.state.players[owner].flags["transfer_negative"] === true;
+    return { ...base, transferActive };
   };
 
   const runPhase = async (phase: Phase, sources: EffectSource[]) => {
@@ -191,6 +211,10 @@ export async function resolveTurn(
   // 1. turnStart —— buff / 技能 / 符卡
   await runPhase("turnStart", withCards());
   resolvePendingWaves(ctx, state, log);
+
+  // turnStart 结束后列出当前生效的 BUFF 与生效顺序（包含本回合 activateOnCreate 的 buff）。
+  logActiveBuffs(state, turn, order, log);
+  log("priority", `优先级顺序: ${prio.order.join(" → ")}（先攻 ${prio.firstMover}）`, undefined, "info");
 
   // 2. priority —— 仅处理无效/反转类（这些效果在其 script 的 priority 阶段实现）
   await runPhase("priority", withCards());
@@ -288,7 +312,7 @@ export async function resolveTurn(
 function resolvePendingWaves(
   ctx: TurnContext,
   state: GameState,
-  log: (phase: Phase | undefined, msg: string, data?: Record<string, unknown>, type?: "physical" | "spell" | "hp" | "buff" | "info") => void,
+  log: (phase: Phase | undefined, msg: string, data?: Record<string, unknown>, type?: LogEntry["type"]) => void,
 ): void {
   let guard = 0;
   while (ctx.pending.length > 0 && guard < 20) {
@@ -305,7 +329,7 @@ function applyDamageWave(
   ctx: TurnContext,
   state: GameState,
   wave: PendingDamage[],
-  log: (phase: Phase | undefined, msg: string, data?: Record<string, unknown>, type?: "physical" | "spell" | "hp" | "buff" | "info") => void,
+  log: (phase: Phase | undefined, msg: string, data?: Record<string, unknown>, type?: LogEntry["type"]) => void,
 ): void {
   const charName = (p: PlayerId) => state.players[p].character.name;
 
@@ -374,6 +398,21 @@ function applyDamageWave(
     cfg.absorb = absorbed.absorbLeft;
   }
 
+  // 回合总伤害上限（琪露诺·湖之妖精 / 霜符【冰袭方阵】）：在吸收后、扣血前应用。
+  for (const t of ["A", "B"] as PlayerId[]) {
+    const cfg = ctx.damageConfig[t];
+    if (cfg.totalAtMost !== null) {
+      const waveTotal = perTarget[t].physical + perTarget[t].spell;
+      if (waveTotal > cfg.totalAtMost) {
+        const ratio = cfg.totalAtMost / waveTotal;
+        perTarget[t].physical = Math.floor(perTarget[t].physical * ratio);
+        perTarget[t].spell = cfg.totalAtMost - perTarget[t].physical;
+        damageDetails[t].negated += waveTotal - cfg.totalAtMost;
+      }
+      cfg.totalAtMost = Math.max(0, cfg.totalAtMost - (perTarget[t].physical + perTarget[t].spell));
+    }
+  }
+
   // 应用到 HP，并记录已造成伤害。
   const applyTo = (t: PlayerId, source: PlayerId) => {
     const dmg = perTarget[t];
@@ -436,6 +475,65 @@ function applyDamageWave(
     if (rb.physical > 0) log("apply", `${charName(s)}（${s}）受到反弹物理伤害 ${rb.physical}`, undefined, "physical");
     if (rb.spell > 0) log("apply", `${charName(s)}（${s}）受到反弹法术伤害 ${rb.spell}`, undefined, "spell");
     log("apply", `${charName(s)}（${s}）HP ${before} → ${p.hp}`, undefined, "hp");
+  }
+}
+
+const categoryLabel: Record<BuffCategory, string> = {
+  power: "威力",
+  "damage-taken": "承伤",
+  negate: "无效",
+  reverse: "反转",
+  "immune-reflect-absorb": "免疫/反弹/吸收",
+  "delayed-damage": "延迟伤害",
+  heal: "回复",
+  "hp-lock": "HP锁定",
+  other: "其他",
+};
+
+function formatBuffRemaining(b: Buff): string {
+  const turnPart = b.remainingTurns >= 0 ? `${b.remainingTurns} 回合` : "";
+  const trigPart = b.remainingTriggers >= 0 ? `${b.remainingTriggers} 次` : "";
+  if (!turnPart && !trigPart) return "永续";
+  return [turnPart, trigPart].filter(Boolean).join(" / ");
+}
+
+function logActiveBuffs(
+  state: GameState,
+  turn: number,
+  order: PlayerId[],
+  log: (phase: Phase | undefined, msg: string, data?: Record<string, unknown>, type?: LogEntry["type"]) => void,
+): void {
+  let anyBuff = false;
+  for (const p of order) {
+    const active = state.players[p].buffs.filter(
+      (b) => !(b.createdTurn === turn && !b.activateOnCreate),
+    );
+    const name = state.players[p].character.name;
+    if (active.length === 0) {
+      log("turnStart", `${name}（${p}）当前生效 BUFF：无`, undefined, "info");
+      continue;
+    }
+    anyBuff = true;
+    log("turnStart", `${name}（${p}）当前生效 BUFF（共 ${active.length} 个）：`, undefined, "info");
+    for (const b of active) {
+      const cat = b.category ?? "other";
+      const desc = b.text ?? b.name;
+      const remain = formatBuffRemaining(b);
+      log(
+        "turnStart",
+        `  [${categoryLabel[cat]}] ${b.name}：${desc}（${remain}）`,
+        { player: p, buffId: b.id, category: cat },
+        "buff",
+      );
+    }
+  }
+  if (anyBuff) {
+    log(
+      "turnStart",
+      `BUFF/技能生效顺序：先处理 ${order[0]}，再处理 ${order[1]}；同玩家按上表从上至下`,
+      undefined,
+      "info",
+    );
   }
 }
 

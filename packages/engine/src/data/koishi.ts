@@ -26,8 +26,8 @@ export const koishi: Character = {
       passive: true,
       declaredAtTurnStart: false,
       script: {
-        power: (ec) => {
-          // 检查本回合是否发生了威力调整（adds/mults 数组非空）
+        // 必须在 power 阶段全部威力调整完成后检测，因此放在 apply 阶段
+        apply: (ec) => {
           const selfChanged =
             ec.ctx.power[ec.self].adds.length + ec.ctx.power[ec.self].mults.length > 0;
           const foeChanged =
@@ -97,6 +97,8 @@ export const koishi: Character = {
               owner: ec.self,
               turns: 2,
               triggers: 1,
+              text: `下回合己方符卡威力提升 ${diff} 点`,
+              category: "power",
               script: { power: (e) => addPower(e, diff) },
             });
           }
@@ -147,6 +149,8 @@ export const koishi: Character = {
             owner: ec.self,
             turns: 2,
             triggers: 1,
+            text: "下回合对方符卡威力下降 6 点",
+            category: "power",
             script: { power: (e) => addPower(e, -6, e.foe) },
           }),
       },
@@ -200,6 +204,8 @@ export const koishi: Character = {
             name: "本我的解放",
             owner: ec.self,
             turns: 3,
+            text: "接下来三回合中，己方符卡威力上升 1 点",
+            category: "power",
             script: { power: (e) => addPower(e, 1) },
           }),
       },

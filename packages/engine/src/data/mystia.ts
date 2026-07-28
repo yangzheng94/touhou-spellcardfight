@@ -101,16 +101,18 @@ export const mystia: Character = {
           if (ec.ctx.dealt[ec.foe].physical + ec.ctx.dealt[ec.foe].spell > 0) {
             addBuff(ec, {
               id: "mystia-mimizuku-buff",
-              name: "木菟-受伤翻倍",
-              owner: ec.self,
-              turns: 2,
-              triggers: 1,
-              script: {
-                damage: (e) => {
-                  e.ctx.damageConfig[e.foe].physical.mults.push(2);
-                  e.ctx.damageConfig[e.foe].spell.mults.push(2);
-                },
+            name: "木菟-受伤翻倍",
+            owner: ec.self,
+            turns: 2,
+            triggers: 1,
+            text: "下回合对方所受伤害翻倍",
+            category: "damage-taken",
+            script: {
+              damage: (e) => {
+                e.ctx.damageConfig[e.foe].physical.mults.push(2);
+                e.ctx.damageConfig[e.foe].spell.mults.push(2);
               },
+            },
             });
           }
         },
@@ -130,6 +132,8 @@ export const mystia: Character = {
             owner: ec.self,
             turns: 2,
             triggers: 1,
+            text: "下次对方所受物理伤害 +5，法术伤害 +5",
+            category: "damage-taken",
             script: {
               damage: (e) => {
                 addTakenDamage(e, e.foe, "physical", 5);
@@ -163,6 +167,8 @@ export const mystia: Character = {
             name: "合唱指挥",
             owner: ec.self,
             turns: 3,
+            text: "接下来 3 回合结束时己方回复 3 点 HP",
+            category: "heal",
             script: {
               turnEnd: (e) =>
                 e.ctx.pending.push({ type: "spell", amount: 3, source: e.self, target: e.self, isHeal: true }),
@@ -184,17 +190,19 @@ export const mystia: Character = {
           if (phys || spell) {
             addBuff(ec, {
               id: "mystia-rou-buff",
-              name: "双重牢笼",
-              owner: ec.self,
-              turns: 2,
-              triggers: 1,
-              script: {
-                damage: (e) => {
-                  // 对方下次产生的物理/法术伤害归0
-                  if (phys) e.ctx.damageConfig[e.foe].physical.mults.push(0);
-                  if (spell) e.ctx.damageConfig[e.foe].spell.mults.push(0);
-                },
+            name: "双重牢笼",
+            owner: ec.self,
+            turns: 2,
+            triggers: 1,
+            text: `${phys ? "对方下次造成的物理伤害归0" : ""}${phys && spell ? "，" : ""}${spell ? "对方下次造成的法术伤害归0" : ""}`,
+            category: "damage-taken",
+            script: {
+              damage: (e) => {
+                // 对方下次产生的物理/法术伤害归0
+                if (phys) e.ctx.damageConfig[e.foe].physical.mults.push(0);
+                if (spell) e.ctx.damageConfig[e.foe].spell.mults.push(0);
               },
+            },
             });
           }
         },
@@ -242,6 +250,8 @@ export const mystia: Character = {
               name: "毒蛾鳞粉",
               owner: ec.self,
               turns: taken + 1,
+              text: `接下来 ${taken} 回合每回合对方流失 3 点 HP`,
+              category: "delayed-damage",
               script: { turnEnd: (e) => drainLife(e, 3, e.foe) },
             });
           }
@@ -264,6 +274,8 @@ export const mystia: Character = {
               owner: ec.self,
               turns: 2,
               triggers: 1,
+              text: "下回合对方符卡威力归 0",
+              category: "power",
               script: { power: (e) => setPower(e, 0, e.foe) },
             });
           }

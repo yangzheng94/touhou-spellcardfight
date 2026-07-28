@@ -30,8 +30,9 @@ export interface PriorityOrder {
 
 /**
  * 计算本回合两张符卡的处理顺序。
- * 规则：无效系 > 反转系 > 其余；同优先级看发动速度。
- * 由于属性装饰化 + 同时出牌，同级碰撞采用服务器随机决定先攻（并记录日志）。
+ * 规则：无效系 > 反转系 > 其余；
+ * 同优先级时，非无效系按符卡基础威力高者先攻，威力相同则随机；
+ * 无效系同级仍按随机处理。
  */
 export function computePriorityOrder(
   cardA: Card | null,
@@ -42,7 +43,18 @@ export function computePriorityOrder(
   const rankB = cardB ? cardPriorityRank(cardB) : 0;
   if (rankA > rankB) return { order: ["A", "B"], firstMover: "A" };
   if (rankB > rankA) return { order: ["B", "A"], firstMover: "B" };
-  // 同级：随机先攻
-  const first: PlayerId = rng.next() < 0.5 ? "A" : "B";
+
+  // 同级：非无效系按威力高者先攻，无效系或威力相同则随机
+  const isNegate = (r: number) => r >= PRIORITY_RANK["negate-effect"];
+  let first: PlayerId;
+  if (!isNegate(rankA)) {
+    const powerA = cardA?.power ?? 0;
+    const powerB = cardB?.power ?? 0;
+    if (powerA > powerB) first = "A";
+    else if (powerB > powerA) first = "B";
+    else first = rng.next() < 0.5 ? "A" : "B";
+  } else {
+    first = rng.next() < 0.5 ? "A" : "B";
+  }
   return { order: [first, first === "A" ? "B" : "A"], firstMover: first };
 }

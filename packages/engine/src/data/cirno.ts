@@ -30,8 +30,7 @@ export const cirno: Character = {
       script: {
         damage: (ec) => {
           if (hpOf(ec, ec.self) <= 9) {
-            ec.ctx.damageConfig[ec.self].physical.atMost = 3;
-            ec.ctx.damageConfig[ec.self].spell.atMost = 3;
+            ec.ctx.damageConfig[ec.self].totalAtMost = 3;
           }
         },
       },
@@ -52,6 +51,8 @@ export const cirno: Character = {
             owner: ec.self,
             turns: 2,
             triggers: 1,
+            text: "下回合对对方造成 6 点法术伤害",
+            category: "delayed-damage",
             script: {
               damage: (e) => {
                 dealSpell(e, 6, e.foe);
@@ -90,7 +91,7 @@ export const cirno: Character = {
       tags: ["buff", "absorb"],
       script: {
         apply: (ec) => {
-          const ratio = Math.floor(cardPowerOf(ec, ec.self) / Math.max(1, cardPowerOf(ec, ec.foe))) * 4;
+          const ratio = Math.floor((cardPowerOf(ec, ec.self) / Math.max(1, cardPowerOf(ec, ec.foe))) * 4);
           // 在turnEnd添加buff，确保下回合的damage阶段生效
           addBuff(ec, {
             id: "cirno-bakufu-shield",
@@ -98,6 +99,8 @@ export const cirno: Character = {
             owner: ec.self,
             turns: 2,
             triggers: 1,
+            text: `下回合吸收 ${ratio} 点伤害`,
+            category: "immune-reflect-absorb",
             script: {
               damage: (e) => {
                 addAbsorb(e, e.self, ratio);
@@ -158,6 +161,8 @@ export const cirno: Character = {
             owner: ec.self,
             turns: 2,
             triggers: 1,
+            text: "下回合自己的 HP 不会改变",
+            category: "hp-lock",
             script: {
               turnStart: (e) => {
                 lockHp(e, e.self);
@@ -188,20 +193,18 @@ export const cirno: Character = {
       tags: ["buff"],
       script: {
         turnStart: (ec) => {
-          // 初始化剩余可承受伤害为6
-          setRes(ec, ec.self, "frost_shield", 6);
+          // 初始化或延续剩余可承受伤害为6
+          const current = getRes(ec, ec.self, "frost_shield");
+          if (current <= 0) {
+            setRes(ec, ec.self, "frost_shield", 6);
+          }
         },
         damage: (ec) => {
-          const left = getRes(ec, ec.self, "frost_shield");
-          if (left > 0) {
-            ec.ctx.damageConfig[ec.self].physical.atMost = left;
-            ec.ctx.damageConfig[ec.self].spell.atMost = left;
-          }
+          ec.ctx.damageConfig[ec.self].totalAtMost = getRes(ec, ec.self, "frost_shield");
         },
         apply: (ec) => {
           const taken = ec.ctx.dealt[ec.self].physical + ec.ctx.dealt[ec.self].spell;
-          const remaining = Math.max(0, getRes(ec, ec.self, "frost_shield") - taken);
-          setRes(ec, ec.self, "frost_shield", remaining);
+          setRes(ec, ec.self, "frost_shield", Math.max(0, getRes(ec, ec.self, "frost_shield") - taken));
 
           // 添加buff延续到后续两回合（共三回合）
           addBuff(ec, {
@@ -209,13 +212,12 @@ export const cirno: Character = {
             name: "冰袭方阵",
             owner: ec.self,
             turns: 3,
+            text: "三回合内己方所受总伤害上限为 6",
+            category: "damage-taken",
             script: {
               damage: (e) => {
-                const l = getRes(e, e.self, "frost_shield");
-                if (l > 0) {
-                  e.ctx.damageConfig[e.self].physical.atMost = l;
-                  e.ctx.damageConfig[e.self].spell.atMost = l;
-                }
+                // 即使剩余上限为0也要设置，确保本回合继续受限
+                e.ctx.damageConfig[e.self].totalAtMost = getRes(e, e.self, "frost_shield");
               },
               apply: (e) => {
                 const t = e.ctx.dealt[e.self].physical + e.ctx.dealt[e.self].spell;
@@ -245,6 +247,8 @@ export const cirno: Character = {
               owner: ec.self,
               turns: 2,
               triggers: 1,
+              text: "下回合自己打出伤害翻倍，且免疫对方伤害",
+              category: "immune-reflect-absorb",
               script: {
                 damage: (e) => {
                   immune(e, e.self, "all");
@@ -281,6 +285,8 @@ export const cirno: Character = {
             name: "妖精旋转",
             owner: ec.self,
             turns: 5,
+            text: "五回合内，每当己方受到伤害，回合结束时回复 2 HP",
+            category: "heal",
             script: {
               turnEnd: (e) => {
                 if (e.ctx.dealt[e.self].physical + e.ctx.dealt[e.self].spell > 0) heal(e, 2);

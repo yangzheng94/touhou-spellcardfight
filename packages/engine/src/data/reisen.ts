@@ -124,6 +124,8 @@ export const reisen: Character = {
               name: "幻之月-流失",
               owner: ec.self,
               turns: turns + 1, // +1因为当前回合末不计时
+              text: `接下来 ${turns} 回合中，每回合结束时流失 1 点生命`,
+              category: "delayed-damage",
               script: { turnEnd: (e) => drainLife(e, 1, e.self, e.self) },
             });
           }
@@ -174,6 +176,8 @@ export const reisen: Character = {
             owner: ec.self,
             turns: 2,
             triggers: 1,
+            text: "下回合免疫物理伤害",
+            category: "immune-reflect-absorb",
             script: {
               damage: (e) => {
                 immune(e, e.self, "physical");
@@ -217,6 +221,8 @@ export const reisen: Character = {
             owner: ec.self,
             turns: 2,
             triggers: 1,
+            text: "下回合己方威力翻倍，对方所受伤害翻倍",
+            category: "power",
             script: {
               power: (e) => {
                 multPower(e, 2);
@@ -250,6 +256,8 @@ export const reisen: Character = {
               owner: ec.self,
               turns: 2,
               triggers: 1,
+              text: "下回合己方符卡威力翻倍",
+              category: "power",
               script: {
                 power: (e) => {
                   multPower(e, 2);

@@ -6,8 +6,8 @@ import { CHARACTERS } from "../src/data/index.js";
  * 冒烟测试：每名角色 vs 妖梦，逐张符卡打出，确保结算不抛异常、HP 合法。
  */
 describe("全角色冒烟测试", () => {
-  it("19 名角色均已录入", () => {
-    expect(CHARACTERS.length).toBe(19);
+  it("20 名角色均已录入", () => {
+    expect(CHARACTERS.length).toBe(20);
   });
 
   for (const char of CHARACTERS) {

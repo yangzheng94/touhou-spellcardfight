@@ -183,6 +183,8 @@ export const sakuya: Character = {
               owner: ec.self,
               turns: 2,
               triggers: 1,
+              text: "下回合符卡威力 +3",
+              category: "power",
               script: { power: (e) => e.ctx.power[e.self].adds.push(3) },
             });
           }
@@ -232,6 +234,8 @@ export const sakuya: Character = {
             turns: 2,
             triggers: 1,
             activateOnCreate: true,
+            text: "己方所受伤害减半，对方所受伤害加倍，双方伤害延迟至下下回合结算",
+            category: "delayed-damage",
             script: {
               damage: (e) => {
                 e.ctx.log({ type: "info", msg: `THE WORLD：damage阶段生效，己方减伤/对方增伤` });
@@ -291,6 +295,8 @@ export const sakuya: Character = {
                       turns: 1,
                       triggers: 1,
                       activateOnCreate: true,
+                      text: `结算累积延迟伤害（${self}→${foe} 物理${dpA}+法术${dsA}，${foe}→${self} 物理${dpB}+法术${dsB}）`,
+                      category: "delayed-damage",
                       data: { dpA, dsA, dpB, dsB },
                       script: {
                         damage: (ee) => {
@@ -333,6 +339,8 @@ export const sakuya: Character = {
             owner: ec.self,
             turns: 2,
             triggers: 1,
+            text: "下回合受到物理伤害时，产生 8 点法术伤害",
+            category: "delayed-damage",
             script: {
               apply: (e) => {
                 if (e.ctx.dealt[e.self].physical > 0) dealSpell(e, 8);

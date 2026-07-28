@@ -29,6 +29,8 @@ export const satori: Character = {
               owner: ec.self,
               turns: 2,
               triggers: 1,
+              text: "下回合己方符卡威力提升 1 点",
+              category: "power",
               script: {
                 power: (e) => {
                   addPower(e, 1);
@@ -139,6 +141,8 @@ export const satori: Character = {
             owner: ec.self,
             turns: 2,
             triggers: 1,
+            text: "下回合产生法术伤害时，恢复等量的生命",
+            category: "heal",
             script: {
               apply: (e) => {
                 if (e.ctx.dealt[e.foe].spell > 0) heal(e, e.ctx.dealt[e.foe].spell);
@@ -191,6 +195,8 @@ export const satori: Character = {
             owner: ec.self,
             turns: 2,
             triggers: 1,
+            text: "下回合造成的法术伤害与回复量翻倍",
+            category: "heal",
             script: {
               damage: (e) => {
                 multTakenDamage(e, e.foe, "spell", 2);
@@ -218,6 +224,8 @@ export const satori: Character = {
             name: "二反色",
             owner: ec.self,
             turns: 3,
+            text: "接下来三回合中，每回合产生 1 点法术伤害",
+            category: "delayed-damage",
             script: { damage: (e) => dealSpell(e, 1) },
           }),
       },

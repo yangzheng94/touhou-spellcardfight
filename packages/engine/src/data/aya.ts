@@ -40,6 +40,8 @@ export const aya: Character = {
             owner: ec.self,
             turns: 2, // 当前回合有效
             triggers: 1, // 只触发一次
+            text: "己方下一次造成的伤害 +3",
+            category: "damage-taken",
             script: {
               damage: (e) => {
                 addTakenDamage(e, e.foe, "physical", 3);
@@ -100,6 +102,8 @@ export const aya: Character = {
             name: "幻想风靡-威力衰减",
             owner: ec.self,
             turns: n + 1,
+            text: `接下来 ${n} 回合每回合符卡威力 -1`,
+            category: "power",
             script: { power: (e) => addPower(e, -1) },
           });
         },
@@ -131,6 +135,8 @@ export const aya: Character = {
             owner: ec.self,
             turns: 2,
             triggers: 1,
+            text: "下回合自己符卡威力归 0",
+            category: "power",
             script: { power: (e) => setPower(e, 0) },
           }),
       },
@@ -150,6 +156,8 @@ export const aya: Character = {
             owner: ec.self,
             turns: 2,
             triggers: 1,
+            text: "己方下次造成的物理伤害归 0",
+            category: "damage-taken",
             script: {
               damage: (e) => {
                 // 将己方造成的物理伤害归0
@@ -176,6 +184,8 @@ export const aya: Character = {
             owner: ec.self,
             turns: 2,
             triggers: 1,
+            text: "己方下次造成的法术伤害归 0",
+            category: "damage-taken",
             script: {
               damage: (e) => {
                 // 将己方造成的法术伤害归0
@@ -210,6 +220,8 @@ export const aya: Character = {
               name: "鸟居旋风-反噬",
               owner: ec.self,
               turns: excess + 1,
+              text: `接下来 ${excess} 回合每回合自己流失 1 点生命`,
+              category: "delayed-damage",
               script: { turnEnd: (e) => drainLife(e, 1, e.self, e.self) },
             });
           }
@@ -230,6 +242,8 @@ export const aya: Character = {
             owner: ec.self,
             turns: -1,
             triggers: 3,
+            text: "接下来 3 次受到伤害时，双方受到的伤害 +6",
+            category: "damage-taken",
             script: {
               damage: (e) => {
                 addTakenDamage(e, "A", "physical", 6);
@@ -288,6 +302,8 @@ export const aya: Character = {
             owner: ec.self,
             turns: 2,
             triggers: 1,
+            text: "下回合自己的能力无效",
+            category: "negate",
             script: { priority: (e) => negateEffect(e, e.self) },
           }),
       },

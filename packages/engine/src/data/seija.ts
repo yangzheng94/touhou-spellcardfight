@@ -1,6 +1,7 @@
 import type { Character, EffectContext } from "../types.js";
 import {
   addPower,
+  setPower,
   multPower,
   dealSpell,
   dealPhysical,
@@ -10,10 +11,49 @@ import {
   requestDecision,
 } from "../effects.js";
 import { addBuff, getRes, setRes, addRes, setFlag, getFlag } from "../buffs.js";
+import type { PlayerId } from "../types.js";
 
 /** 为复制对方效果创建 EffectContext（self/foe 互换）。 */
 function ecForCopy(ec: EffectContext): EffectContext {
   return { ctx: ec.ctx, self: ec.foe, foe: ec.self };
+}
+
+/** 给目标施加一层幻觉，同时造成 1 点法术伤害，并更新/创建显示层数的 BUFF。 */
+function addIllusion(ec: EffectContext, target: PlayerId) {
+  addRes(ec, target, "illusion", 1);
+  dealSpell(ec, 1, target, ec.self);
+  const layers = getRes(ec, target, "illusion");
+  const player = ec.ctx.state.players[target];
+  const existing = player.buffs.find((b) => b.id === "seija-illusion");
+  const text = `幻觉层数 ${layers}：触发特定效果时结算`;
+  if (existing) {
+    existing.text = text;
+  } else {
+    addBuff(ec, {
+      id: "seija-illusion",
+      name: "幻觉",
+      owner: target,
+      turns: -1,
+      text,
+      category: "other",
+      script: {},
+    });
+  }
+  ec.ctx.log({ type: "info", msg: `幻觉判定：${player.character.name} 陷入幻觉（当前 ${layers} 层），受到 1 点法术伤害` });
+}
+
+/** 更新幻觉层数显示 BUFF 的文本；若层数为 0 则移除。 */
+function updateIllusionBuff(ec: EffectContext, target: PlayerId) {
+  const layers = getRes(ec, target, "illusion");
+  const player = ec.ctx.state.players[target];
+  if (layers <= 0) {
+    player.buffs = player.buffs.filter((b) => b.id !== "seija-illusion");
+  } else {
+    const existing = player.buffs.find((b) => b.id === "seija-illusion");
+    if (existing) {
+      existing.text = `幻觉层数 ${layers}：触发特定效果时结算`;
+    }
+  }
 }
 
 /**
@@ -34,13 +74,8 @@ export const seija: Character = {
       passive: true,
       declaredAtTurnStart: false,
       script: {
-        turnStart: (ec) => setRes(ec, ec.self, "_illu_bonus_done", 0),
-        apply: (ec) => {
-          if (getRes(ec, ec.foe, "illusion") > 0 && !getRes(ec, ec.self, "_illu_bonus_done")) {
-            setRes(ec, ec.self, "_illu_bonus_done", 1);
-            dealSpell(ec, 1);
-          }
-        },
+        // 新机制：每次施加幻觉已由 addIllusion 附带 1 点法术伤害，
+        // 此处不再额外追加，避免重复结算。
       },
     },
     {
@@ -51,7 +86,7 @@ export const seija: Character = {
       passive: false,
       declaredAtTurnStart: true,
       script: {
-        turnEnd: (ec) => addRes(ec, ec.foe, "illusion", 1),
+        turnEnd: (ec) => addIllusion(ec, ec.foe),
       },
     },
     {
@@ -81,14 +116,16 @@ export const seija: Character = {
         apply: (ec) => {
           const d = ec.ctx.dealt[ec.foe];
           if (d.physical + d.spell > 0) {
-            addRes(ec, ec.foe, "illusion", 1);
+            addIllusion(ec, ec.foe);
             addBuff(ec, {
               id: "seija-ginjou-half",
-              name: "银色荆棘-威力减半",
-              owner: ec.self,
-              turns: 2,
-              triggers: 1,
-              script: { power: (e) => multPower(e, 0.5, e.foe) },
+            name: "银色荆棘-威力减半",
+            owner: ec.self,
+            turns: 2,
+            triggers: 1,
+            text: "下回合对方符卡威力减半",
+            category: "power",
+            script: { power: (e) => multPower(e, 0.5, e.foe) },
             });
           }
         },
@@ -106,7 +143,7 @@ export const seija: Character = {
           const dmg = Math.floor(diff / 2);
           if (dmg > 0) {
             dealSpell(ec, dmg);
-            addRes(ec, ec.foe, "illusion", 1);
+            addIllusion(ec, ec.foe);
           }
         },
       },
@@ -118,12 +155,22 @@ export const seija: Character = {
       text: "按双方威力差直接对敌方造成物理伤害，并进行1次幻觉判定；若威力差大于5则再追加1次幻觉判定",
       tags: ["spell-damage"],
       script: {
+        // 替代正常 clash：先记录双方威力，再将双方威力设为 0，
+        // 由 damage 阶段按威力差直接造成物理伤害。
+        power: (ec) => {
+          setRes(ec, ec.self, "_gyoukou_self_power", cardPowerOf(ec, ec.self));
+          setRes(ec, ec.self, "_gyoukou_foe_power", cardPowerOf(ec, ec.foe));
+          setPower(ec, 0, ec.self);
+          setPower(ec, 0, ec.foe);
+        },
         damage: (ec) => {
-          const diff = Math.abs(cardPowerOf(ec, ec.self) - cardPowerOf(ec, ec.foe));
+          const selfPower = getRes(ec, ec.self, "_gyoukou_self_power");
+          const foePower = getRes(ec, ec.self, "_gyoukou_foe_power");
+          const diff = selfPower - foePower;
           if (diff > 0) {
             dealPhysical(ec, diff);
-            addRes(ec, ec.foe, "illusion", 1);
-            if (diff > 5) addRes(ec, ec.foe, "illusion", 1);
+            addIllusion(ec, ec.foe);
+            if (diff > 5) addIllusion(ec, ec.foe);
           }
         },
       },
@@ -131,7 +178,7 @@ export const seija: Character = {
     {
       id: "seija-shitsurakuen",
       name: "终焉【失乐园】",
-      power: 10,
+      power: 6,
       text: "在之后１－５回合内，每回合开始前进行一次幻觉判定",
       tags: ["buff"],
       script: {
@@ -141,8 +188,10 @@ export const seija: Character = {
             id: "seija-shitsurakuen-illu",
             name: "失乐园-持续幻觉",
             owner: ec.self,
-            turns: dur + 1,
-            script: { turnStart: (e) => addRes(e, e.foe, "illusion", 1) },
+            turns: dur,
+            text: `接下来 ${dur} 回合每回合开始时对方陷入一次幻觉`,
+            category: "other",
+            script: { turnStart: (e) => addIllusion(e, e.foe) },
           });
         },
       },
@@ -155,7 +204,7 @@ export const seija: Character = {
       tags: [],
       script: {
         power: (ec) => multPower(ec, 0.5, ec.foe),
-        turnStart: (ec) => addRes(ec, ec.foe, "illusion", 1),
+        turnStart: (ec) => addIllusion(ec, ec.foe),
       },
     },
     {
@@ -166,7 +215,7 @@ export const seija: Character = {
       tags: ["negate-effect"],
       script: {
         priority: (ec) => negateEffect(ec, ec.foe),
-        turnStart: (ec) => addRes(ec, ec.foe, "illusion", 1),
+        turnStart: (ec) => addIllusion(ec, ec.foe),
       },
     },
     {
@@ -180,6 +229,7 @@ export const seija: Character = {
           const n = getRes(ec, ec.foe, "illusion");
           dealSpell(ec, n * 2);
           setRes(ec, ec.foe, "illusion", Math.floor(n / 2));
+          updateIllusionBuff(ec, ec.foe);
         },
       },
     },

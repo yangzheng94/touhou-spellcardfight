@@ -64,6 +64,8 @@ export const hata: Character = {
               owner: ec.self,
               turns: 2,
               triggers: 1,
+              text: `下回合开始时回复 ${shield} 点 HP`,
+              category: "heal",
               script: {
                 turnStart: (e) => {
                   heal(e, getRes(e, e.self, "_enbu_shield"));
@@ -160,6 +162,8 @@ export const hata: Character = {
             owner: ec.self,
             turns: 2,
             triggers: 1,
+            text: "下回合对对方造成的法术伤害翻倍",
+            category: "damage-taken",
             script: { damage: (e) => e.ctx.damageConfig[e.foe].spell.mults.push(2) },
           }),
       },
@@ -180,6 +184,8 @@ export const hata: Character = {
               owner: ec.self,
               turns: 2,
               triggers: 1,
+              text: `下回合对对方造成 ${taken} 点物理伤害`,
+              category: "delayed-damage",
               script: { damage: (e) => dealPhysical(e, taken) },
             });
         },
@@ -213,6 +219,8 @@ export const hata: Character = {
             owner: ec.self,
             turns: 2,
             triggers: 1,
+            text: "下回合己方造成的物理伤害与法术伤害均翻倍",
+            category: "damage-taken",
             script: {
               clash: (e) => e.ctx.damageConfig[e.foe].physical.mults.push(2),
               damage: (e) => e.ctx.damageConfig[e.foe].spell.mults.push(2),

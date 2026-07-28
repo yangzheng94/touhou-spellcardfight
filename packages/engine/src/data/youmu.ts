@@ -85,6 +85,8 @@ export const youmu: Character = {
               owner: ec.self,
               turns: 2, // 覆盖「下回合」（创建回合不计）
               triggers: 1,
+              text: "下回合对方符卡威力降低 4 点",
+              category: "power",
               script: { power: (e) => addPower(e, -4, e.foe) },
             });
           }
@@ -163,6 +165,8 @@ export const youmu: Character = {
             owner: ec.self,
             turns: 2,
             triggers: 1,
+            text: "下回合自己符卡威力翻倍",
+            category: "power",
             script: { power: (e) => multPower(e, 2) },
           });
         },

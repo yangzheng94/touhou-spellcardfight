@@ -71,6 +71,8 @@ export const remilia: Character = {
               owner: ec.self,
               turns: 2,
               triggers: 1,
+              text: `下回合符卡威力 +${savedPower}`,
+              category: "power",
               script: { power: (e) => addPower(e, savedPower) },
             });
             setRes(ec, ec.self, "_akaisekai_power", 0);
@@ -136,6 +138,8 @@ export const remilia: Character = {
             owner: ec.self,
             turns: 2,
             triggers: 1,
+            text: "下回合对方符卡威力 +4",
+            category: "power",
             script: { power: (e) => addPower(e, 4, e.foe) },
           }),
       },
@@ -164,6 +168,8 @@ export const remilia: Character = {
             name: "千年吸血鬼",
             owner: ec.self,
             turns: 3,
+            text: "接下来 3 回合中，每当对方受到伤害，己方回复 4 点 HP",
+            category: "heal",
             script: {
               apply: (e) => {
                 if (e.ctx.dealt[e.foe].physical + e.ctx.dealt[e.foe].spell > 0) heal(e, 4);

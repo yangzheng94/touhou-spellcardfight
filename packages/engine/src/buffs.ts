@@ -1,4 +1,4 @@
-import type { Buff, EffectContext, EffectScript, PlayerId } from "./types.js";
+import type { Buff, BuffCategory, EffectContext, EffectScript, PlayerId } from "./types.js";
 
 /**
  * BUFF / 持续效果 / 专属资源 辅助库。
@@ -21,21 +21,32 @@ export interface BuffSpec {
   data?: Record<string, number>;
   /** 当回合立即生效（默认 false，下回合开始才触发）。 */
   activateOnCreate?: boolean;
+  /** 面向玩家的效果描述。 */
+  text?: string;
+  /** 效果分类，用于战斗日志。 */
+  category?: BuffCategory;
 }
 
 /** 为某方添加一个 buff（若同 id 已存在则替换/刷新）。 */
 export function addBuff(ec: EffectContext, spec: BuffSpec): void {
-  const p = ec.ctx.state.players[spec.owner];
+  // 当日截稿：己方符卡产生的 self 类 BUFF 转移给对方
+  let owner = spec.owner;
+  if (ec.transferActive && owner === ec.self) {
+    owner = ec.foe;
+  }
+  const p = ec.ctx.state.players[owner];
   const buff: Buff = {
     id: spec.id,
     name: spec.name,
-    owner: spec.owner,
+    owner,
     createdTurn: ec.ctx.turn,
     remainingTurns: spec.turns ?? -1,
     remainingTriggers: spec.triggers ?? -1,
     script: spec.script,
     data: spec.data,
     activateOnCreate: spec.activateOnCreate ?? false,
+    text: spec.text,
+    category: spec.category,
   };
   const idx = p.buffs.findIndex((b) => b.id === spec.id);
   if (idx >= 0) p.buffs[idx] = buff;

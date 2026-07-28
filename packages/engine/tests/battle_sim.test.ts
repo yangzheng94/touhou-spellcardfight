@@ -33,6 +33,14 @@ function findSkill(c: Character, id: string) {
   return skill;
 }
 
+function makeCard(id: string, name: string, power: number): Card {
+  return { id, name, power, text: name, tags: [], script: {} };
+}
+
+function makeChar(name: string, hp: number, cards: Card[]): Character {
+  return { id: name, name, hp, skills: [], cards };
+}
+
 describe("战斗模拟：核心机制验证", () => {
   describe("伤害系统", () => {
     it("物理伤害：妖梦(威力8) vs 咲夜(威力1,将对方设为0)", async () => {
@@ -400,7 +408,7 @@ describe("战斗模拟：各角色关键技能/符卡验证", () => {
       expect(state.players.A.hp).toBeGreaterThanOrEqual(0);
     });
 
-    it("当日截稿：负面效果转移", async () => {
+    it("当日截稿：先攻时负面 BUFF 转移给对手", async () => {
       const skill = findSkill(aya, "aya-shime"); // 当日截稿
       const ac = findCard(aya, "aya-fujinissen");
       const dc = findCard(youmu, "youmu-genseizan");
@@ -408,8 +416,51 @@ describe("战斗模拟：各角色关键技能/符卡验证", () => {
 
       await resolveTurn(state, { card: ac, skills: [skill] }, { card: dc, skills: [] });
 
-      expect(state.players.A.hp).toBeGreaterThanOrEqual(0);
-      expect(state.players.B.hp).toBeGreaterThanOrEqual(0);
+      // 风神一扇的流失应作用于对方，自己不掉血
+      expect(state.players.A.hp).toBe(26);
+      expect(state.players.B.hp).toBeLessThan(27);
+      // 威力归0 的负面 BUFF 应转移到 B
+      expect(state.players.B.buffs.some((b) => b.id === "aya-fujin-zero")).toBe(true);
+      expect(state.players.A.buffs.some((b) => b.id === "aya-fujin-zero")).toBe(false);
+    });
+
+    it("当日截稿：后攻时负面 BUFF 仍转移给对手", async () => {
+      const skill = findSkill(aya, "aya-shime");
+      const ac = findCard(aya, "aya-fujinissen");
+      const highPower: Character = {
+        id: "high",
+        name: "高威力",
+        hp: 30,
+        skills: [],
+        cards: [{ id: "hp-card", name: "高威力卡", power: 15, text: "", tags: [], script: {} }],
+      };
+      const state = createGameState({ ...aya }, highPower, 1);
+
+      await resolveTurn(state, { card: ac, skills: [skill] }, { card: highPower.cards[0], skills: [] });
+
+      // 即使 Aya 后攻，威力归0 BUFF 也应转移到 B
+      expect(state.players.B.buffs.some((b) => b.id === "aya-fujin-zero")).toBe(true);
+      expect(state.players.A.buffs.some((b) => b.id === "aya-fujin-zero")).toBe(false);
+    });
+  });
+
+  describe("优先级判定", () => {
+    it("同等级（other）时，威力高者先攻", async () => {
+      const high = makeCard("high", "高威力", 10);
+      const low = makeCard("low", "低威力", 3);
+      const state = createGameState(makeChar("A", 30, [high]), makeChar("B", 30, [low]), 1);
+      await resolveTurn(state, { card: high, skills: [] }, { card: low, skills: [] });
+      const prio = state.log.find((e) => e.msg?.includes("优先级顺序"))?.msg;
+      expect(prio).toContain("先攻 A");
+    });
+
+    it("同等级威力相同时仍可正常结算", async () => {
+      const c1 = makeCard("c1", "同威力A", 5);
+      const c2 = makeCard("c2", "同威力B", 5);
+      const state = createGameState(makeChar("A", 30, [c1]), makeChar("B", 30, [c2]), 1);
+      await resolveTurn(state, { card: c1, skills: [] }, { card: c2, skills: [] });
+      const prio = state.log.find((e) => e.msg?.includes("优先级顺序"))?.msg;
+      expect(prio).toMatch(/先攻 A|先攻 B/);
     });
   });
 

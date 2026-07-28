@@ -49,6 +49,8 @@ export const tokoyo: Character = {
               owner: ec.self,
               turns: 2,
               triggers: 1,
+              text: `下回合对对方造成 ${totalDmg} 点法术伤害`,
+              category: "delayed-damage",
               script: {
                 damage: (e) => {
                   dealSpell(e, getRes(e, e.self, "_seiza_damage"));
@@ -140,6 +142,8 @@ export const tokoyo: Character = {
             owner: ec.self,
             turns: 2,
             triggers: 1,
+            text: "下回合双方回复 10 点 HP",
+            category: "heal",
             script: {
               damage: (e) => {
                 heal(e, 10, "A");
@@ -199,6 +203,8 @@ export const tokoyo: Character = {
               owner: ec.self,
               turns: 2,
               triggers: 1,
+              text: "下回合对方无法打出符卡",
+              category: "negate",
               script: { priority: (e) => (e.ctx.castNegated[e.foe] = true) },
             });
         },
@@ -233,6 +239,8 @@ export const tokoyo: Character = {
             name: "Deadly Butterfly",
             owner: ec.self,
             turns: 2,
+            text: "接下来 2 回合己方 HP 不会改变",
+            category: "hp-lock",
             script: { turnStart: (e) => (e.ctx.hpLocked[e.self] = true) },
           });
         },
@@ -251,6 +259,8 @@ export const tokoyo: Character = {
             name: "无果之花",
             owner: ec.self,
             turns: 3,
+            text: "接下来 3 回合对方无法回复生命",
+            category: "other",
             script: { turnStart: (e) => setRes(e, e.foe, "_no_heal", 1) },
           }),
       },
@@ -269,6 +279,8 @@ export const tokoyo: Character = {
             owner: ec.self,
             turns: 2,
             triggers: 1,
+            text: "下回合对方回复 10 点 HP",
+            category: "heal",
             script: { damage: (e) => heal(e, 10, e.foe) },
           }),
       },

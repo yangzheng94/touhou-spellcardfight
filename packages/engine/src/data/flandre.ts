@@ -107,6 +107,8 @@ export const flandre: Character = {
               name: "莱瓦汀-威力+8",
               owner: ec.self,
               turns: -1,
+              text: "威力 +8，直到对对方造成伤害后移除",
+              category: "power",
               script: {
                 power: (e) => addPower(e, 8),
                 apply: (e) => {

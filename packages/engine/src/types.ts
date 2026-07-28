@@ -71,6 +71,18 @@ export interface Character {
 // 运行时状态
 // ---------------------------------------------------------------------------
 
+/** BUFF 效果分类，用于战斗日志展示。 */
+export type BuffCategory =
+  | "power" // 加减威力、翻倍、设定威力
+  | "damage-taken" // 承受伤害增减
+  | "negate" // 效果无效、发动无效、无视威力
+  | "reverse" // 作用对象反转、威力互换
+  | "immune-reflect-absorb" // 免疫、反弹、吸收
+  | "delayed-damage" // 延迟/持续伤害
+  | "heal" // 回复
+  | "hp-lock" // HP 锁定
+  | "other"; // 其他资源/标记类
+
 /** 延时/持续 BUFF（历史遗留效果 / 技能造成的状态，不受本回合无效系影响） */
 export interface Buff {
   id: string; // 唯一标识，便于叠加/移除
@@ -82,6 +94,8 @@ export interface Buff {
   script: EffectScript; // 每回合注册钩子
   data?: Record<string, number>; // buff 自身携带的数值
   activateOnCreate?: boolean; // 当回合立即生效（默认 false，下回合开始才触发）
+  text?: string; // 面向玩家的效果描述
+  category?: BuffCategory; // 效果分类
 }
 
 /** 单个玩家的运行时状态 */
@@ -150,6 +164,7 @@ export interface SideDamageConfig {
   physical: DamageMods;
   spell: DamageMods;
   absorb: number; // 吸收护盾（先抵物理后抵法术）
+  totalAtMost: number | null; // 本回合所受总伤害（物理+法术）上限，每波结算后扣减
 }
 
 /** 待结算的一次伤害/生命变动指令 */
@@ -221,6 +236,8 @@ export interface EffectContext {
   ctx: TurnContext;
   self: PlayerId; // 效果拥有者
   foe: PlayerId; // 对手
+  /** 当日截稿：当前处于己方符卡负面效果转移状态时，addBuff 会把 self 类 BUFF 转交给 foe */
+  transferActive?: boolean;
 }
 
 /**

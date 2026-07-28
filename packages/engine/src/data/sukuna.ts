@@ -66,10 +66,12 @@ export const sukuna: Character = {
               addAbsorb(ec, ec.self, 20);
               addBuff(ec, {
                 id: "sukuna-mahoraga-phys",
-                name: "魔虚罗-物理",
-                owner: ec.self,
-                turns: -1,
-                script: { damage: (e) => (e.ctx.damageConfig[e.self].physical.immune = true) },
+              name: "魔虚罗-物理",
+              owner: ec.self,
+              turns: -1,
+              text: "此后免疫物理伤害",
+              category: "immune-reflect-absorb",
+              script: { damage: (e) => (e.ctx.damageConfig[e.self].physical.immune = true) },
               });
             }
           }
@@ -80,10 +82,12 @@ export const sukuna: Character = {
               addAbsorb(ec, ec.self, 20);
               addBuff(ec, {
                 id: "sukuna-mahoraga-spell",
-                name: "魔虚罗-法术",
-                owner: ec.self,
-                turns: -1,
-                script: { damage: (e) => (e.ctx.damageConfig[e.self].spell.immune = true) },
+              name: "魔虚罗-法术",
+              owner: ec.self,
+              turns: -1,
+              text: "此后免疫法术伤害",
+              category: "immune-reflect-absorb",
+              script: { damage: (e) => (e.ctx.damageConfig[e.self].spell.immune = true) },
               });
             }
           }
@@ -162,6 +166,8 @@ export const sukuna: Character = {
             name: "伏魔御厨子",
             owner: ec.self,
             turns: 99,
+            text: `己方 HP 高于 ${threshold} 期间，每回合对对方造成 2 点物理伤害`,
+            category: "delayed-damage",
             script: {
               damage: (e) => {
                 if (hpOf(e, e.self) > getRes(e, e.self, "_fukuma_threshold")) dealPhysical(e, 2);
@@ -199,6 +205,8 @@ export const sukuna: Character = {
             owner: ec.self,
             turns: 2,
             triggers: 1,
+            text: "下回合若自己受到伤害，则对方流失 7 点生命",
+            category: "delayed-damage",
             script: {
               apply: (e) => {
                 if (e.ctx.dealt[e.self].physical + e.ctx.dealt[e.self].spell > 0) drainLife(e, 7, e.foe);
@@ -254,6 +262,8 @@ export const sukuna: Character = {
             name: "还没用全力",
             owner: ec.self,
             turns: 2,
+            text: "下回合维持 0HP 不死",
+            category: "other",
             script: {
               turnStart: (e) => {
                 e.ctx.state.players[e.self].flags["_patch_active"] = true;
