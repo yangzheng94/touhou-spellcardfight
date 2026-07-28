@@ -10,6 +10,7 @@ import {
   addAbsorb,
   cardPowerOf,
 } from "../effects.js";
+import { resolvePower } from "../power.js";
 import { addBuff, consumeTrigger, getRes, setRes, setFlag } from "../buffs.js";
 import type { Card, EffectContext } from "../types.js";
 
@@ -155,15 +156,23 @@ export const patches: Character = {
           );
           if (willTakeSpell) {
             ec.ctx.log({ type: "info", msg: "弹反：本回合将受到法术伤害，效果无效" });
+            setFlag(ec, ec.self, "_danfan_physical_incoming", false);
             return;
           }
-          immune(ec, ec.self, "physical");
-          setFlag(ec, ec.self, "_danfan_success", true);
+          // 记录本回合是否有物理伤害来袭（即使被免疫也算“受到物理伤害”）
+          const willTakePhysical = ec.ctx.pending.some(
+            (p) => p.target === ec.self && p.type === "physical" && !p.isHeal && !p.isDrain,
+          );
+          setFlag(ec, ec.self, "_danfan_physical_incoming", willTakePhysical);
+          if (willTakePhysical) {
+            immune(ec, ec.self, "physical");
+            setFlag(ec, ec.self, "_danfan_success", true);
+          }
         },
         apply: (ec) => {
           if (!ec.ctx.state.players[ec.self].flags["_danfan_success"]) return;
-          const dealt = ec.ctx.dealt[ec.self];
-          if (dealt.physical > 0) {
+          const incoming = ec.ctx.state.players[ec.self].flags["_danfan_physical_incoming"];
+          if (incoming) {
             addBuff(ec, {
               id: "patches-danfan-buff",
               name: "弹反-下次威力+4",
@@ -172,10 +181,16 @@ export const patches: Character = {
               triggers: 1,
               text: "下回合符卡威力 +4",
               category: "power",
-              script: { power: (e) => addPower(e, 4) },
+              script: {
+                power: (e) => {
+                  addPower(e, 4);
+                  consumeTrigger(e, e.self, "patches-danfan-buff");
+                },
+              },
             });
           }
           setFlag(ec, ec.self, "_danfan_success", false);
+          setFlag(ec, ec.self, "_danfan_physical_incoming", false);
         },
       },
     },
@@ -249,10 +264,11 @@ export const patches: Character = {
       text: "该回合双方威力跳过结算直接扣除对方血量",
       tags: ["manual"],
       script: {
-        // 双方都不参与 clash，改为按各自符卡基础威力直接造成物理伤害
+        // 双方都不参与 clash，改为按各自符卡结算后的实际威力直接造成物理伤害。
+        // 使用 resolvePower 以兼容弹反等威力加成效果。
         power: (ec) => {
-          setRes(ec, ec.self, "_laoduan_self_power", cardPowerOf(ec, ec.self));
-          setRes(ec, ec.self, "_laoduan_foe_power", cardPowerOf(ec, ec.foe));
+          setRes(ec, ec.self, "_laoduan_self_power", resolvePower(ec.ctx.power[ec.self]));
+          setRes(ec, ec.self, "_laoduan_foe_power", resolvePower(ec.ctx.power[ec.foe]));
           setPower(ec, 0, ec.self);
           setPower(ec, 0, ec.foe);
         },

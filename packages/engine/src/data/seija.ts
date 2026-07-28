@@ -1,7 +1,6 @@
 import type { Character, EffectContext } from "../types.js";
 import {
   addPower,
-  setPower,
   multPower,
   dealSpell,
   dealPhysical,
@@ -10,6 +9,7 @@ import {
   cardPowerOf,
   requestDecision,
 } from "../effects.js";
+import { resolvePower } from "../power.js";
 import { addBuff, getRes, setRes, addRes, setFlag, getFlag } from "../buffs.js";
 import type { PlayerId } from "../types.js";
 
@@ -155,18 +155,11 @@ export const seija: Character = {
       text: "按双方威力差直接对敌方造成物理伤害，并进行1次幻觉判定；若威力差大于5则再追加1次幻觉判定",
       tags: ["spell-damage"],
       script: {
-        // 替代正常 clash：先记录双方威力，再将双方威力设为 0，
-        // 由 damage 阶段按威力差直接造成物理伤害。
-        power: (ec) => {
-          setRes(ec, ec.self, "_gyoukou_self_power", cardPowerOf(ec, ec.self));
-          setRes(ec, ec.self, "_gyoukou_foe_power", cardPowerOf(ec, ec.foe));
-          setPower(ec, 0, ec.self);
-          setPower(ec, 0, ec.foe);
-        },
+        // 效果处理：在正常 clash 之外，再按实际威力差的绝对值对敌方造成一次物理伤害。
         damage: (ec) => {
-          const selfPower = getRes(ec, ec.self, "_gyoukou_self_power");
-          const foePower = getRes(ec, ec.self, "_gyoukou_foe_power");
-          const diff = selfPower - foePower;
+          const selfPower = resolvePower(ec.ctx.power[ec.self]);
+          const foePower = resolvePower(ec.ctx.power[ec.foe]);
+          const diff = Math.abs(selfPower - foePower);
           if (diff > 0) {
             dealPhysical(ec, diff);
             addIllusion(ec, ec.foe);

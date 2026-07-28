@@ -15,6 +15,7 @@ import { cirno } from "../src/data/cirno.js";
 import { koishi } from "../src/data/koishi.js";
 import { satori } from "../src/data/satori.js";
 import { seija } from "../src/data/seija.js";
+import { patches } from "../src/data/patches.js";
 
 function card(id: string, name: string, power: number, script: EffectScript, tags: Card["tags"] = []): Card {
   return { id, name, power, text: name, tags, script };
@@ -287,17 +288,17 @@ describe("apply 阶段追加触发（半人半灵式）", () => {
 });
 
 describe("圣娅·幻觉机制", () => {
-  it("凝光幻剑替代正常 clash，按威力差造成物理伤害", async () => {
+  it("凝光幻剑在正常 clash 外再按威力差造成物理伤害", async () => {
     const gyoukou = seija.cards.find((c) => c.id === "seija-gyoukou")!;
     const dummyB = card("dB", "空B", 0, {});
     const attacker: Character = { ...seija, cards: [gyoukou] };
     const defender = charWith("B", 30, [dummyB]);
     const state = newGame(attacker, defender, { seed: 1 });
 
-    // 凝光幻剑威力 5 vs 空卡 0，替代 clash 后造成 5 物理 + 1 层幻觉（1 法术）
+    // 凝光幻剑威力 5 vs 空卡 0：clash 5 + 效果威力差 5 = 10 物理，+ 1 层幻觉（1 法术）
     await playTurn(state, { cardId: "seija-gyoukou" }, { cardId: "dB" });
 
-    expect(state.damageHistory[0].B.physical).toBe(5);
+    expect(state.damageHistory[0].B.physical).toBe(10);
     expect(state.damageHistory[0].B.spell).toBe(1);
     expect(state.players.B.resources["illusion"]).toBe(1);
   });
@@ -369,5 +370,26 @@ describe("圣娅·幻觉机制", () => {
     const illusionBuff = state.players.B.buffs.find((b) => b.id === "seija-illusion");
     expect(illusionBuff).toBeDefined();
     expect(illusionBuff?.text).toContain("1");
+  });
+});
+
+describe("帕奇·弹反", () => {
+  it("免疫物理伤害后获得下一张符卡威力+4 Buff", async () => {
+    const danfan = patches.cards.find((c) => c.id === "patches-danfan")!;
+    const attack = card("atk", "攻击", 6, {});
+    const attacker: Character = { ...patches, cards: [danfan, attack] };
+    const defender = charWith("B", 30, [card("d1", "空1", 6, {}), card("d2", "空2", 0, {})]);
+    const state = newGame(attacker, defender, { seed: 1 });
+
+    // T1: A 弹反 vs B 攻击6，A 免疫 6 点物理伤害
+    await playTurn(state, { cardId: "patches-danfan" }, { cardId: "d1" });
+    // 即使实际伤害被免疫为 0，也应获得弹反 Buff
+    const danfanBuff = state.players.A.buffs.find((b) => b.id === "patches-danfan-buff");
+    expect(danfanBuff).toBeDefined();
+    expect(state.damageHistory[0].A.physical).toBe(0);
+
+    // T2: A 攻击6 享受 +4 威力 vs B 空卡0，B 受 10 物理
+    await playTurn(state, { cardId: "atk" }, { cardId: "d2" });
+    expect(state.damageHistory[1].B.physical).toBe(10);
   });
 });
