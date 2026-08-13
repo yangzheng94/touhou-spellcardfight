@@ -1,0 +1,238 @@
+
+【魂魄妖梦】 id=youmu
+  人符【现世斩】 → public/icons/youmu/youmu-genseizan.png / public/icons/youmu/youmu-genseizan.jpg / public/icons/youmu/youmu-genseizan.jpeg / public/icons/youmu/youmu-genseizan.webp
+  人鬼【未来永劫斩】 → public/icons/youmu/youmu-miraieigo.png / public/icons/youmu/youmu-miraieigo.jpg / public/icons/youmu/youmu-miraieigo.jpeg / public/icons/youmu/youmu-miraieigo.webp
+  空观剑【六根清净斩】 → public/icons/youmu/youmu-rokkon.png / public/icons/youmu/youmu-rokkon.jpg / public/icons/youmu/youmu-rokkon.jpeg / public/icons/youmu/youmu-rokkon.webp
+  彼岸剑【地狱极乐灭多斩】 → public/icons/youmu/youmu-higan.png / public/icons/youmu/youmu-higan.jpg / public/icons/youmu/youmu-higan.jpeg / public/icons/youmu/youmu-higan.webp
+  奥义【西行春风斩】 → public/icons/youmu/youmu-saigyou.png / public/icons/youmu/youmu-saigyou.jpg / public/icons/youmu/youmu-saigyou.jpeg / public/icons/youmu/youmu-saigyou.webp
+  狱神剑【业风神闪斩】 → public/icons/youmu/youmu-gokushin.png / public/icons/youmu/youmu-gokushin.jpg / public/icons/youmu/youmu-gokushin.jpeg / public/icons/youmu/youmu-gokushin.webp
+  六道剑【一念无量劫】 → public/icons/youmu/youmu-rikudou.png / public/icons/youmu/youmu-rikudou.jpg / public/icons/youmu/youmu-rikudou.jpeg / public/icons/youmu/youmu-rikudou.webp
+  断想剑【草木成佛斩】 → public/icons/youmu/youmu-dansou.png / public/icons/youmu/youmu-dansou.jpg / public/icons/youmu/youmu-dansou.jpeg / public/icons/youmu/youmu-dansou.webp
+  人智剑【天女返】 → public/icons/youmu/youmu-tennyo.png / public/icons/youmu/youmu-tennyo.jpg / public/icons/youmu/youmu-tennyo.jpeg / public/icons/youmu/youmu-tennyo.webp
+  断命剑【冥想斩】 → public/icons/youmu/youmu-danmei.png / public/icons/youmu/youmu-danmei.jpg / public/icons/youmu/youmu-danmei.jpeg / public/icons/youmu/youmu-danmei.webp
+
+【圣娅】 id=seija
+  幻狐【银色荆棘】 → public/icons/seija/seija-ginjou.png / public/icons/seija/seija-ginjou.jpg / public/icons/seija/seija-ginjou.jpeg / public/icons/seija/seija-ginjou.webp
+  狐镜【万华之筒】 → public/icons/seija/seija-mange.png / public/icons/seija/seija-mange.jpg / public/icons/seija/seija-mange.jpeg / public/icons/seija/seija-mange.webp
+  幻狐【凝光幻剑】 → public/icons/seija/seija-gyoukou.png / public/icons/seija/seija-gyoukou.jpg / public/icons/seija/seija-gyoukou.jpeg / public/icons/seija/seija-gyoukou.webp
+  终焉【失乐园】 → public/icons/seija/seija-shitsurakuen.png / public/icons/seija/seija-shitsurakuen.jpg / public/icons/seija/seija-shitsurakuen.jpeg / public/icons/seija/seija-shitsurakuen.webp
+  幻惑【镜花水月】 → public/icons/seija/seija-kyouka.png / public/icons/seija/seija-kyouka.jpg / public/icons/seija/seija-kyouka.jpeg / public/icons/seija/seija-kyouka.webp
+  灵智【草木皆兵】 → public/icons/seija/seija-soumoku.png / public/icons/seija/seija-soumoku.jpg / public/icons/seija/seija-soumoku.jpeg / public/icons/seija/seija-soumoku.webp
+  心像【幻空之境】 → public/icons/seija/seija-genku.png / public/icons/seija/seija-genku.jpg / public/icons/seija/seija-genku.jpeg / public/icons/seija/seija-genku.webp
+  禁忌【潘多拉的魔盒】 → public/icons/seija/seija-pandora.png / public/icons/seija/seija-pandora.jpg / public/icons/seija/seija-pandora.jpeg / public/icons/seija/seija-pandora.webp
+  无想【阴阳螺旋】 → public/icons/seija/seija-inyou.png / public/icons/seija/seija-inyou.jpg / public/icons/seija/seija-inyou.jpeg / public/icons/seija/seija-inyou.webp
+  接续【心空妙有】 → public/icons/seija/seija-shinku.png / public/icons/seija/seija-shinku.jpg / public/icons/seija/seija-shinku.jpeg / public/icons/seija/seija-shinku.webp
+
+【射命丸文】 id=aya
+  无双【幻想风靡】 → public/icons/aya/aya-musou.png / public/icons/aya/aya-musou.jpg / public/icons/aya/aya-musou.jpeg / public/icons/aya/aya-musou.webp
+  旋符【飘妖扇】 → public/icons/aya/aya-hayougi.png / public/icons/aya/aya-hayougi.jpg / public/icons/aya/aya-hayougi.jpeg / public/icons/aya/aya-hayougi.webp
+  风符【风神一扇】 → public/icons/aya/aya-fujinissen.png / public/icons/aya/aya-fujinissen.jpg / public/icons/aya/aya-fujinissen.jpeg / public/icons/aya/aya-fujinissen.webp
+  突符【天狗巨爆流】 → public/icons/aya/aya-tengu.png / public/icons/aya/aya-tengu.jpg / public/icons/aya/aya-tengu.jpeg / public/icons/aya/aya-tengu.webp
+  鸦符【暗夜昼魔】 → public/icons/aya/aya-anya.png / public/icons/aya/aya-anya.jpg / public/icons/aya/aya-anya.jpeg / public/icons/aya/aya-anya.webp
+  旋风【鸟居旋风】 → public/icons/aya/aya-torii.png / public/icons/aya/aya-torii.jpg / public/icons/aya/aya-torii.jpeg / public/icons/aya/aya-torii.webp
+  塞符【天上天下的照国】 → public/icons/aya/aya-teru.png / public/icons/aya/aya-teru.jpg / public/icons/aya/aya-teru.jpeg / public/icons/aya/aya-teru.webp
+  风神【天狗颪】 → public/icons/aya/aya-oroshi.png / public/icons/aya/aya-oroshi.jpg / public/icons/aya/aya-oroshi.jpeg / public/icons/aya/aya-oroshi.webp
+  歧符【天之八衢】 → public/icons/aya/aya-yachimata.png / public/icons/aya/aya-yachimata.jpg / public/icons/aya/aya-yachimata.jpeg / public/icons/aya/aya-yachimata.webp
+  逆风【人间禁制之道】 → public/icons/aya/aya-gyakufuu.png / public/icons/aya/aya-gyakufuu.jpg / public/icons/aya/aya-gyakufuu.jpeg / public/icons/aya/aya-gyakufuu.webp
+
+【芙兰朵露斯卡雷特】 id=flandre
+  禁忌【禁果】 → public/icons/flandre/flan-kinka.png / public/icons/flandre/flan-kinka.jpg / public/icons/flandre/flan-kinka.jpeg / public/icons/flandre/flan-kinka.webp
+  禁忌【莱瓦汀】 → public/icons/flandre/flan-laevatein.png / public/icons/flandre/flan-laevatein.jpg / public/icons/flandre/flan-laevatein.jpeg / public/icons/flandre/flan-laevatein.webp
+  禁忌【四重存在】 → public/icons/flandre/flan-fourfold.png / public/icons/flandre/flan-fourfold.jpg / public/icons/flandre/flan-fourfold.jpeg / public/icons/flandre/flan-fourfold.webp
+  禁忌【笼女游戏】 → public/icons/flandre/flan-kagome.png / public/icons/flandre/flan-kagome.jpg / public/icons/flandre/flan-kagome.jpeg / public/icons/flandre/flan-kagome.webp
+  禁忌【恋之迷宫】 → public/icons/flandre/flan-maze.png / public/icons/flandre/flan-maze.jpg / public/icons/flandre/flan-maze.jpeg / public/icons/flandre/flan-maze.webp
+  禁忌【被禁止的游戏】 → public/icons/flandre/flan-forbidden.png / public/icons/flandre/flan-forbidden.jpg / public/icons/flandre/flan-forbidden.jpeg / public/icons/flandre/flan-forbidden.webp
+  禁弹【星弧破碎】 → public/icons/flandre/flan-starbow.png / public/icons/flandre/flan-starbow.jpg / public/icons/flandre/flan-starbow.jpeg / public/icons/flandre/flan-starbow.webp
+  禁弹【折反射】 → public/icons/flandre/flan-reflect.png / public/icons/flandre/flan-reflect.jpg / public/icons/flandre/flan-reflect.jpeg / public/icons/flandre/flan-reflect.webp
+  QED【495年的波纹】 → public/icons/flandre/flan-qed.png / public/icons/flandre/flan-qed.jpg / public/icons/flandre/flan-qed.jpeg / public/icons/flandre/flan-qed.webp
+  秘弹【之后就一个人都没有了吗？】 → public/icons/flandre/flan-alone.png / public/icons/flandre/flan-alone.jpg / public/icons/flandre/flan-alone.jpeg / public/icons/flandre/flan-alone.webp
+
+【十六夜咲夜】 id=sakuya
+  幻符【杀人玩偶】 → public/icons/sakuya/sakuya-doll.png / public/icons/sakuya/sakuya-doll.jpg / public/icons/sakuya/sakuya-doll.jpeg / public/icons/sakuya/sakuya-doll.webp
+  幻符【无差别伤害】 → public/icons/sakuya/sakuya-musabetsu.png / public/icons/sakuya/sakuya-musabetsu.jpg / public/icons/sakuya/sakuya-musabetsu.jpeg / public/icons/sakuya/sakuya-musabetsu.webp
+  幻葬【雾夜幻影杀人鬼】 → public/icons/sakuya/sakuya-mugen.png / public/icons/sakuya/sakuya-mugen.jpg / public/icons/sakuya/sakuya-mugen.jpeg / public/icons/sakuya/sakuya-mugen.webp
+  时符【完美空间】 → public/icons/sakuya/sakuya-perfect.png / public/icons/sakuya/sakuya-perfect.jpg / public/icons/sakuya/sakuya-perfect.jpeg / public/icons/sakuya/sakuya-perfect.webp
+  伤魂【灵魂雕塑】 → public/icons/sakuya/sakuya-soul.png / public/icons/sakuya/sakuya-soul.jpg / public/icons/sakuya/sakuya-soul.jpeg / public/icons/sakuya/sakuya-soul.webp
+  幻世【THE WORLD】 → public/icons/sakuya/sakuya-world.png / public/icons/sakuya/sakuya-world.jpg / public/icons/sakuya/sakuya-world.jpeg / public/icons/sakuya/sakuya-world.webp
+  幻在【钟表的残骸】 → public/icons/sakuya/sakuya-clock.png / public/icons/sakuya/sakuya-clock.jpg / public/icons/sakuya/sakuya-clock.jpeg / public/icons/sakuya/sakuya-clock.webp
+  奇术【永恒的温柔】 → public/icons/sakuya/sakuya-tender.png / public/icons/sakuya/sakuya-tender.jpg / public/icons/sakuya/sakuya-tender.jpeg / public/icons/sakuya/sakuya-tender.webp
+  银符【银之跳跃】 → public/icons/sakuya/sakuya-silver.png / public/icons/sakuya/sakuya-silver.jpg / public/icons/sakuya/sakuya-silver.jpeg / public/icons/sakuya/sakuya-silver.webp
+  幻象【月神之钟】 → public/icons/sakuya/sakuya-moonclock.png / public/icons/sakuya/sakuya-moonclock.jpg / public/icons/sakuya/sakuya-moonclock.jpeg / public/icons/sakuya/sakuya-moonclock.webp
+
+【琪露诺】 id=cirno
+  冰符【冰瀑】 → public/icons/cirno/cirno-bakufu.png / public/icons/cirno/cirno-bakufu.jpg / public/icons/cirno/cirno-bakufu.jpeg / public/icons/cirno/cirno-bakufu.webp
+  冰符【冰柱机枪】 → public/icons/cirno/cirno-icebeam.png / public/icons/cirno/cirno-icebeam.jpg / public/icons/cirno/cirno-icebeam.jpeg / public/icons/cirno/cirno-icebeam.webp
+  冰块【冷冻洒水器】 → public/icons/cirno/cirno-sprinkler.png / public/icons/cirno/cirno-sprinkler.jpg / public/icons/cirno/cirno-sprinkler.jpeg / public/icons/cirno/cirno-sprinkler.webp
+  冻符【负K】 → public/icons/cirno/cirno-negk.png / public/icons/cirno/cirno-negk.jpg / public/icons/cirno/cirno-negk.jpeg / public/icons/cirno/cirno-negk.webp
+  冻符【完美冻结】 → public/icons/cirno/cirno-freeze.png / public/icons/cirno/cirno-freeze.jpg / public/icons/cirno/cirno-freeze.jpeg / public/icons/cirno/cirno-freeze.webp
+  雹符【冰雹暴风】 → public/icons/cirno/cirno-hail.png / public/icons/cirno/cirno-hail.jpg / public/icons/cirno/cirno-hail.jpeg / public/icons/cirno/cirno-hail.webp
+  霜符【冰袭方阵】 → public/icons/cirno/cirno-frost.png / public/icons/cirno/cirno-frost.jpg / public/icons/cirno/cirno-frost.jpeg / public/icons/cirno/cirno-frost.webp
+  雪符【钻石风暴】 → public/icons/cirno/cirno-diamond.png / public/icons/cirno/cirno-diamond.jpg / public/icons/cirno/cirno-diamond.jpeg / public/icons/cirno/cirno-diamond.webp
+  冰符【妖精旋转】 → public/icons/cirno/cirno-spin.png / public/icons/cirno/cirno-spin.jpg / public/icons/cirno/cirno-spin.jpeg / public/icons/cirno/cirno-spin.webp
+  冰王【冰雪狂欢】 → public/icons/cirno/cirno-carnival.png / public/icons/cirno/cirno-carnival.jpg / public/icons/cirno/cirno-carnival.jpeg / public/icons/cirno/cirno-carnival.webp
+
+【铃仙优昙华院因幡】 id=reisen
+  波符【幻之月】 → public/icons/reisen/reisen-gennotsuki.png / public/icons/reisen/reisen-gennotsuki.jpg / public/icons/reisen/reisen-gennotsuki.jpeg / public/icons/reisen/reisen-gennotsuki.webp
+  月眼【月兔远隔催眠术】 → public/icons/reisen/reisen-getsugan.png / public/icons/reisen/reisen-getsugan.jpg / public/icons/reisen/reisen-getsugan.jpeg / public/icons/reisen/reisen-getsugan.webp
+  散符【真实之月】 → public/icons/reisen/reisen-shinjitsu.png / public/icons/reisen/reisen-shinjitsu.jpg / public/icons/reisen/reisen-shinjitsu.jpeg / public/icons/reisen/reisen-shinjitsu.webp
+  狂视【幻胧月睨】 → public/icons/reisen/reisen-gerou.png / public/icons/reisen/reisen-gerou.jpg / public/icons/reisen/reisen-gerou.jpeg / public/icons/reisen/reisen-gerou.webp
+  幻惑【花冠视线】 → public/icons/reisen/reisen-kakan.png / public/icons/reisen/reisen-kakan.jpg / public/icons/reisen/reisen-kakan.jpeg / public/icons/reisen/reisen-kakan.webp
+  生药【国士无双之药】 → public/icons/reisen/reisen-kokushi.png / public/icons/reisen/reisen-kokushi.jpg / public/icons/reisen/reisen-kokushi.jpeg / public/icons/reisen/reisen-kokushi.webp
+  狂视【幻迹追踪者】 → public/icons/reisen/reisen-tsuiseki.png / public/icons/reisen/reisen-tsuiseki.jpg / public/icons/reisen/reisen-tsuiseki.jpeg / public/icons/reisen/reisen-tsuiseki.webp
+  赤眼【月狂爆破】 → public/icons/reisen/reisen-bakuha.png / public/icons/reisen/reisen-bakuha.jpg / public/icons/reisen/reisen-bakuha.jpeg / public/icons/reisen/reisen-bakuha.webp
+  惰性【心灵制止】 → public/icons/reisen/reisen-seishi.png / public/icons/reisen/reisen-seishi.jpg / public/icons/reisen/reisen-seishi.jpeg / public/icons/reisen/reisen-seishi.webp
+  幻爆【心灵烟花】 → public/icons/reisen/reisen-hanabi.png / public/icons/reisen/reisen-hanabi.jpg / public/icons/reisen/reisen-hanabi.jpeg / public/icons/reisen/reisen-hanabi.webp
+
+【风见幽香】 id=yuuka
+  魔炮【双生火花】 → public/icons/yuuka/yuuka-sparks.png / public/icons/yuuka/yuuka-sparks.jpg / public/icons/yuuka/yuuka-sparks.jpeg / public/icons/yuuka/yuuka-sparks.webp
+  幻想【梦月】 → public/icons/yuuka/yuuka-mugetsu.png / public/icons/yuuka/yuuka-mugetsu.jpg / public/icons/yuuka/yuuka-mugetsu.jpeg / public/icons/yuuka/yuuka-mugetsu.webp
+  花符【隐目之花】 → public/icons/yuuka/yuuka-kakurebana.png / public/icons/yuuka/yuuka-kakurebana.jpg / public/icons/yuuka/yuuka-kakurebana.jpeg / public/icons/yuuka/yuuka-kakurebana.webp
+  花符【幻想乡的开花】 → public/icons/yuuka/yuuka-kaika.png / public/icons/yuuka/yuuka-kaika.jpg / public/icons/yuuka/yuuka-kaika.jpeg / public/icons/yuuka/yuuka-kaika.webp
+  花符【花之领主】 → public/icons/yuuka/yuuka-ryoushu.png / public/icons/yuuka/yuuka-ryoushu.jpg / public/icons/yuuka/yuuka-ryoushu.jpeg / public/icons/yuuka/yuuka-ryoushu.webp
+  幻夜【月下美人狂咲】 → public/icons/yuuka/yuuka-gekka.png / public/icons/yuuka/yuuka-gekka.jpg / public/icons/yuuka/yuuka-gekka.jpeg / public/icons/yuuka/yuuka-gekka.webp
+  幻想【花鸟风月，啸风弄月】 → public/icons/yuuka/yuuka-reverse.png / public/icons/yuuka/yuuka-reverse.jpg / public/icons/yuuka/yuuka-reverse.jpeg / public/icons/yuuka/yuuka-reverse.webp
+  幻想【太阳花食】 → public/icons/yuuka/yuuka-taiyou.png / public/icons/yuuka/yuuka-taiyou.jpg / public/icons/yuuka/yuuka-taiyou.jpeg / public/icons/yuuka/yuuka-taiyou.webp
+  孔符【大王花之穴】 → public/icons/yuuka/yuuka-daiousana.png / public/icons/yuuka/yuuka-daiousana.jpg / public/icons/yuuka/yuuka-daiousana.jpeg / public/icons/yuuka/yuuka-daiousana.webp
+  疵符【暗黑莲华】 → public/icons/yuuka/yuuka-anrenge.png / public/icons/yuuka/yuuka-anrenge.jpg / public/icons/yuuka/yuuka-anrenge.jpeg / public/icons/yuuka/yuuka-anrenge.webp
+
+【古明地恋】 id=koishi
+  无意识【蔷薇地狱】 → public/icons/koishi/koishi-bara.png / public/icons/koishi/koishi-bara.jpg / public/icons/koishi/koishi-bara.jpeg / public/icons/koishi/koishi-bara.webp
+  表象【先祖托梦】 → public/icons/koishi/koishi-sosen.png / public/icons/koishi/koishi-sosen.jpg / public/icons/koishi/koishi-sosen.jpeg / public/icons/koishi/koishi-sosen.webp
+  复燃【恋爱的埋火】 → public/icons/koishi/koishi-fukunen.png / public/icons/koishi/koishi-fukunen.jpg / public/icons/koishi/koishi-fukunen.jpeg / public/icons/koishi/koishi-fukunen.webp
+  表象【弹幕偏执症】 → public/icons/koishi/koishi-paranoia.png / public/icons/koishi/koishi-paranoia.jpg / public/icons/koishi/koishi-paranoia.jpeg / public/icons/koishi/koishi-paranoia.webp
+  抑制【超我】 → public/icons/koishi/koishi-superego.png / public/icons/koishi/koishi-superego.jpg / public/icons/koishi/koishi-superego.jpeg / public/icons/koishi/koishi-superego.webp
+  记忆【DNA的瑕疵】 → public/icons/koishi/koishi-dna.png / public/icons/koishi/koishi-dna.jpg / public/icons/koishi/koishi-dna.jpeg / public/icons/koishi/koishi-dna.webp
+  无意识【弹幕墨迹测验】 → public/icons/koishi/koishi-rorschach.png / public/icons/koishi/koishi-rorschach.jpg / public/icons/koishi/koishi-rorschach.jpeg / public/icons/koishi/koishi-rorschach.webp
+  反应【妖怪测谎仪】 → public/icons/koishi/koishi-uso.png / public/icons/koishi/koishi-uso.jpg / public/icons/koishi/koishi-uso.jpeg / public/icons/koishi/koishi-uso.webp
+  本能【本我的解放】 → public/icons/koishi/koishi-kaihou.png / public/icons/koishi/koishi-kaihou.jpg / public/icons/koishi/koishi-kaihou.jpeg / public/icons/koishi/koishi-kaihou.webp
+  抑制【被厌恶者的哲学】 → public/icons/koishi/koishi-kensha.png / public/icons/koishi/koishi-kensha.jpg / public/icons/koishi/koishi-kensha.jpeg / public/icons/koishi/koishi-kensha.webp
+
+【古明地觉】 id=satori
+  想起【恐怖的回忆】 → public/icons/satori/satori-kyoufu.png / public/icons/satori/satori-kyoufu.jpg / public/icons/satori/satori-kyoufu.jpeg / public/icons/satori/satori-kyoufu.webp
+  想起【阿弗洛狄特的蔷薇园】 → public/icons/satori/satori-aphrodite.png / public/icons/satori/satori-aphrodite.jpg / public/icons/satori/satori-aphrodite.jpeg / public/icons/satori/satori-aphrodite.webp
+  想起【朦胧的表意识】 → public/icons/satori/satori-oboro.png / public/icons/satori/satori-oboro.jpg / public/icons/satori/satori-oboro.jpeg / public/icons/satori/satori-oboro.webp
+  心花【羞于留影之蔷薇】 → public/icons/satori/satori-shinka.png / public/icons/satori/satori-shinka.jpg / public/icons/satori/satori-shinka.jpeg / public/icons/satori/satori-shinka.webp
+  心理【无心之书】 → public/icons/satori/satori-mushin.png / public/icons/satori/satori-mushin.jpg / public/icons/satori/satori-mushin.jpeg / public/icons/satori/satori-mushin.webp
+  脑符【脑指纹测谎法】 → public/icons/satori/satori-shimon.png / public/icons/satori/satori-shimon.jpg / public/icons/satori/satori-shimon.jpeg / public/icons/satori/satori-shimon.webp
+  想起【心身的舞台】 → public/icons/satori/satori-butai.png / public/icons/satori/satori-butai.jpg / public/icons/satori/satori-butai.jpeg / public/icons/satori/satori-butai.webp
+  暗示【意识的代替形态】 → public/icons/satori/satori-daigata.png / public/icons/satori/satori-daigata.jpg / public/icons/satori/satori-daigata.jpeg / public/icons/satori/satori-daigata.webp
+  心结【二反色】 → public/icons/satori/satori-nihanshoku.png / public/icons/satori/satori-nihanshoku.jpg / public/icons/satori/satori-nihanshoku.jpeg / public/icons/satori/satori-nihanshoku.webp
+  心晶【水色孪晶】 → public/icons/satori/satori-suishou.png / public/icons/satori/satori-suishou.jpg / public/icons/satori/satori-suishou.jpeg / public/icons/satori/satori-suishou.webp
+
+【帕秋莉诺蕾姬】 id=patchouli
+  金符【银龙】 → public/icons/patchouli/patchouli-ginryuu.png / public/icons/patchouli/patchouli-ginryuu.jpg / public/icons/patchouli/patchouli-ginryuu.jpeg / public/icons/patchouli/patchouli-ginryuu.webp
+  金符【金属风暴】 → public/icons/patchouli/patchouli-metalstorm.png / public/icons/patchouli/patchouli-metalstorm.jpg / public/icons/patchouli/patchouli-metalstorm.jpeg / public/icons/patchouli/patchouli-metalstorm.webp
+  火符【火神的光辉】 → public/icons/patchouli/patchouli-kashin-kagayaki.png / public/icons/patchouli/patchouli-kashin-kagayaki.jpg / public/icons/patchouli/patchouli-kashin-kagayaki.jpeg / public/icons/patchouli/patchouli-kashin-kagayaki.webp
+  火符【火神的圆环】 → public/icons/patchouli/patchouli-kashin-wa.png / public/icons/patchouli/patchouli-kashin-wa.jpg / public/icons/patchouli/patchouli-kashin-wa.jpeg / public/icons/patchouli/patchouli-kashin-wa.webp
+  木符【翠绿风暴】 → public/icons/patchouli/patchouli-suijin.png / public/icons/patchouli/patchouli-suijin.jpg / public/icons/patchouli/patchouli-suijin.jpeg / public/icons/patchouli/patchouli-suijin.webp
+  木符【风灵的角笛】 → public/icons/patchouli/patchouli-fuurei.png / public/icons/patchouli/patchouli-fuurei.jpg / public/icons/patchouli/patchouli-fuurei.jpeg / public/icons/patchouli/patchouli-fuurei.webp
+  土符【慵懒三石塔】 → public/icons/patchouli/patchouli-doton.png / public/icons/patchouli/patchouli-doton.jpg / public/icons/patchouli/patchouli-doton.jpeg / public/icons/patchouli/patchouli-doton.webp
+  土符【三石塔的震动】 → public/icons/patchouli/patchouli-sanseki.png / public/icons/patchouli/patchouli-sanseki.jpg / public/icons/patchouli/patchouli-sanseki.jpeg / public/icons/patchouli/patchouli-sanseki.webp
+  水符【水精公主】 → public/icons/patchouli/patchouli-mizusei.png / public/icons/patchouli/patchouli-mizusei.jpg / public/icons/patchouli/patchouli-mizusei.jpeg / public/icons/patchouli/patchouli-mizusei.webp
+  水符【湖葬】 → public/icons/patchouli/patchouli-kosou.png / public/icons/patchouli/patchouli-kosou.jpg / public/icons/patchouli/patchouli-kosou.jpeg / public/icons/patchouli/patchouli-kosou.webp
+
+【蕾米莉亚斯卡雷特】 id=remilia
+  红符【深红射击】 → public/icons/remilia/remilia-shinku.png / public/icons/remilia/remilia-shinku.jpg / public/icons/remilia/remilia-shinku.jpeg / public/icons/remilia/remilia-shinku.webp
+  红符【红色不夜城】 → public/icons/remilia/remilia-fuyajou.png / public/icons/remilia/remilia-fuyajou.jpg / public/icons/remilia/remilia-fuyajou.jpeg / public/icons/remilia/remilia-fuyajou.webp
+  狱符【千根针的针山】 → public/icons/remilia/remilia-harinoyama.png / public/icons/remilia/remilia-harinoyama.jpg / public/icons/remilia/remilia-harinoyama.jpeg / public/icons/remilia/remilia-harinoyama.webp
+  夜符【恶魔之王的摇篮】 → public/icons/remilia/remilia-cradle.png / public/icons/remilia/remilia-cradle.jpg / public/icons/remilia/remilia-cradle.jpeg / public/icons/remilia/remilia-cradle.webp
+  冥符【千年吸血鬼】 → public/icons/remilia/remilia-vampire.png / public/icons/remilia/remilia-vampire.jpg / public/icons/remilia/remilia-vampire.jpeg / public/icons/remilia/remilia-vampire.webp
+  神枪【冈格尼尔】 → public/icons/remilia/remilia-gungnir.png / public/icons/remilia/remilia-gungnir.jpg / public/icons/remilia/remilia-gungnir.jpeg / public/icons/remilia/remilia-gungnir.webp
+  神术【吸血鬼幻想】 → public/icons/remilia/remilia-gensou.png / public/icons/remilia/remilia-gensou.jpg / public/icons/remilia/remilia-gensou.jpeg / public/icons/remilia/remilia-gensou.webp
+  诅咒【断续的噩梦】 → public/icons/remilia/remilia-akumu.png / public/icons/remilia/remilia-akumu.jpg / public/icons/remilia/remilia-akumu.jpeg / public/icons/remilia/remilia-akumu.webp
+  必杀【碎心】 → public/icons/remilia/remilia-kudakishin.png / public/icons/remilia/remilia-kudakishin.jpg / public/icons/remilia/remilia-kudakishin.jpeg / public/icons/remilia/remilia-kudakishin.webp
+  诅咒【红色的幻想乡】 → public/icons/remilia/remilia-gensoukyou.png / public/icons/remilia/remilia-gensoukyou.jpg / public/icons/remilia/remilia-gensoukyou.jpeg / public/icons/remilia/remilia-gensoukyou.webp
+
+【米斯蒂娅萝蕾拉】 id=mystia
+  夜盲【夜雀之歌】 → public/icons/mystia/mystia-yosuzume.png / public/icons/mystia/mystia-yosuzume.jpg / public/icons/mystia/mystia-yosuzume.jpeg / public/icons/mystia/mystia-yosuzume.webp
+  声符【木菟的咆哮】 → public/icons/mystia/mystia-mimizuku.png / public/icons/mystia/mystia-mimizuku.jpg / public/icons/mystia/mystia-mimizuku.jpeg / public/icons/mystia/mystia-mimizuku.webp
+  蛾符【天蛾的蛊道】 → public/icons/mystia/mystia-ga.png / public/icons/mystia/mystia-ga.jpg / public/icons/mystia/mystia-ga.jpeg / public/icons/mystia/mystia-ga.webp
+  鹰符【祸延疾冲】 → public/icons/mystia/mystia-taka.png / public/icons/mystia/mystia-taka.jpg / public/icons/mystia/mystia-taka.jpeg / public/icons/mystia/mystia-taka.webp
+  夜雀【午夜的合唱指挥】 → public/icons/mystia/mystia-gasshou.png / public/icons/mystia/mystia-gasshou.jpg / public/icons/mystia/mystia-gasshou.jpeg / public/icons/mystia/mystia-gasshou.webp
+  鸟符【人类的双重牢笼】 → public/icons/mystia/mystia-rou.png / public/icons/mystia/mystia-rou.jpg / public/icons/mystia/mystia-rou.jpeg / public/icons/mystia/mystia-rou.webp
+  幻鸣【神秘歌音】 → public/icons/mystia/mystia-shinpi.png / public/icons/mystia/mystia-shinpi.jpg / public/icons/mystia/mystia-shinpi.jpeg / public/icons/mystia/mystia-shinpi.webp
+  声符【枭的夜鸣声】 → public/icons/mystia/mystia-fukurou.png / public/icons/mystia/mystia-fukurou.jpg / public/icons/mystia/mystia-fukurou.jpeg / public/icons/mystia/mystia-fukurou.webp
+  猛毒【毒蛾的鳞粉】 → public/icons/mystia/mystia-doku.png / public/icons/mystia/mystia-doku.jpg / public/icons/mystia/mystia-doku.jpeg / public/icons/mystia/mystia-doku.webp
+  幻奏【失明的夜雀】 → public/icons/mystia/mystia-shitsumei.png / public/icons/mystia/mystia-shitsumei.jpg / public/icons/mystia/mystia-shitsumei.jpeg / public/icons/mystia/mystia-shitsumei.webp
+
+【秦心】 id=hata
+  怒面【吼怒的妖狐面】 → public/icons/hata/hata-dokoro.png / public/icons/hata/hata-dokoro.jpg / public/icons/hata/hata-dokoro.jpeg / public/icons/hata/hata-dokoro.webp
+  怒面【怒声的大蜘蛛面】 → public/icons/hata/hata-dosei.png / public/icons/hata/hata-dosei.jpg / public/icons/hata/hata-dosei.jpeg / public/icons/hata/hata-dosei.webp
+  忧面【忧叹的长壁面】 → public/icons/hata/hata-choukoku.png / public/icons/hata/hata-choukoku.jpg / public/icons/hata/hata-choukoku.jpeg / public/icons/hata/hata-choukoku.webp
+  忧面【忧心的鬼婆面】 → public/icons/hata/hata-onibaba.png / public/icons/hata/hata-onibaba.jpg / public/icons/hata/hata-onibaba.jpeg / public/icons/hata/hata-onibaba.webp
+  喜面【欢喜的狮子面】 → public/icons/hata/hata-shishi.png / public/icons/hata/hata-shishi.jpg / public/icons/hata/hata-shishi.jpeg / public/icons/hata/hata-shishi.webp
+  喜面【狂喜的火男面】 → public/icons/hata/hata-hiotoko.png / public/icons/hata/hata-hiotoko.jpg / public/icons/hata/hata-hiotoko.jpeg / public/icons/hata/hata-hiotoko.webp
+  凭依【喜怒哀乐附体】 → public/icons/hata/hata-hyoui.png / public/icons/hata/hata-hyoui.jpg / public/icons/hata/hata-hyoui.jpeg / public/icons/hata/hata-hyoui.webp
+  神秘【假面丧心舞 暗黑能乐】 → public/icons/hata/hata-anko.png / public/icons/hata/hata-anko.jpg / public/icons/hata/hata-anko.jpeg / public/icons/hata/hata-anko.webp
+  忧符【忧世之苦不绝如轮】 → public/icons/hata/hata-ushiro.png / public/icons/hata/hata-ushiro.jpg / public/icons/hata/hata-ushiro.jpeg / public/icons/hata/hata-ushiro.webp
+  喜符【昂扬的神乐狮子】 → public/icons/hata/hata-kagura.png / public/icons/hata/hata-kagura.jpg / public/icons/hata/hata-kagura.jpeg / public/icons/hata/hata-kagura.webp
+
+【博丽灵梦】 id=reimu
+  梦境【二重大结界】 → public/icons/reimu/reimu-nijuu.png / public/icons/reimu/reimu-nijuu.jpg / public/icons/reimu/reimu-nijuu.jpeg / public/icons/reimu/reimu-nijuu.webp
+  灵符【梦想封印 散】 → public/icons/reimu/reimu-san.png / public/icons/reimu/reimu-san.jpg / public/icons/reimu/reimu-san.jpeg / public/icons/reimu/reimu-san.webp
+  散灵【梦想封印 寂】 → public/icons/reimu/reimu-jaku.png / public/icons/reimu/reimu-jaku.jpg / public/icons/reimu/reimu-jaku.jpeg / public/icons/reimu/reimu-jaku.webp
+  梦符【封魔阵】 → public/icons/reimu/reimu-fuumajin.png / public/icons/reimu/reimu-fuumajin.jpg / public/icons/reimu/reimu-fuumajin.jpeg / public/icons/reimu/reimu-fuumajin.webp
+  神技【八方鬼缚阵】 → public/icons/reimu/reimu-happou-oni.png / public/icons/reimu/reimu-happou-oni.jpg / public/icons/reimu/reimu-happou-oni.jpeg / public/icons/reimu/reimu-happou-oni.webp
+  神技【八方龙杀阵】 → public/icons/reimu/reimu-happou-ryuu.png / public/icons/reimu/reimu-happou-ryuu.jpg / public/icons/reimu/reimu-happou-ryuu.jpeg / public/icons/reimu/reimu-happou-ryuu.webp
+  灵符【梦想封印 集】 → public/icons/reimu/reimu-shuu.png / public/icons/reimu/reimu-shuu.jpg / public/icons/reimu/reimu-shuu.jpeg / public/icons/reimu/reimu-shuu.webp
+  回灵【梦想封印 侘】 → public/icons/reimu/reimu-wabi.png / public/icons/reimu/reimu-wabi.jpg / public/icons/reimu/reimu-wabi.jpeg / public/icons/reimu/reimu-wabi.webp
+  神灵【梦想封印 瞬】 → public/icons/reimu/reimu-shun.png / public/icons/reimu/reimu-shun.jpg / public/icons/reimu/reimu-shun.jpeg / public/icons/reimu/reimu-shun.webp
+  境界【二重弹幕结界】 → public/icons/reimu/reimu-nijuu-danmaku.png / public/icons/reimu/reimu-nijuu-danmaku.jpg / public/icons/reimu/reimu-nijuu-danmaku.jpeg / public/icons/reimu/reimu-nijuu-danmaku.webp
+
+【伊吹萃香】 id=suika
+  地狱【炼狱气息】 → public/icons/suika/suika-rengoku.png / public/icons/suika/suika-rengoku.jpg / public/icons/suika/suika-rengoku.jpeg / public/icons/suika/suika-rengoku.webp
+  萃符【户隐山之投】 → public/icons/suika/suika-togakushi.png / public/icons/suika/suika-togakushi.jpg / public/icons/suika/suika-togakushi.jpeg / public/icons/suika/suika-togakushi.webp
+  四天王奥义【三步必杀】 → public/icons/suika/suika-sanpo.png / public/icons/suika/suika-sanpo.jpg / public/icons/suika/suika-sanpo.jpeg / public/icons/suika/suika-sanpo.webp
+  鬼群【百鬼秃童】 → public/icons/suika/suika-hyakki.png / public/icons/suika/suika-hyakki.jpg / public/icons/suika/suika-hyakki.jpeg / public/icons/suika/suika-hyakki.webp
+  醉神【鬼缚之术】 → public/icons/suika/suika-kibaku.png / public/icons/suika/suika-kibaku.jpg / public/icons/suika/suika-kibaku.jpeg / public/icons/suika/suika-kibaku.webp
+  疏符【六里雾中】 → public/icons/suika/suika-mumu.png / public/icons/suika/suika-mumu.jpg / public/icons/suika/suika-mumu.jpeg / public/icons/suika/suika-mumu.webp
+  醉梦【施饿鬼缚之术】 → public/icons/suika/suika-gaki.png / public/icons/suika/suika-gaki.jpg / public/icons/suika/suika-gaki.jpeg / public/icons/suika/suika-gaki.webp
+  鬼符【遗失之力】 → public/icons/suika/suika-ishitsu.png / public/icons/suika/suika-ishitsu.jpg / public/icons/suika/suika-ishitsu.jpeg / public/icons/suika/suika-ishitsu.webp
+  鬼符【大江山悉皆杀】 → public/icons/suika/suika-ooeyama.png / public/icons/suika/suika-ooeyama.jpg / public/icons/suika/suika-ooeyama.jpeg / public/icons/suika/suika-ooeyama.webp
+  火弹【地灵活性弹】 → public/icons/suika/suika-kadan.png / public/icons/suika/suika-kadan.jpg / public/icons/suika/suika-kadan.jpeg / public/icons/suika/suika-kadan.webp
+
+【骊驹早鬼】 id=sagume
+  劲疾技【惊险射击】 → public/icons/sagume/sagume-shageki.png / public/icons/sagume/sagume-shageki.jpg / public/icons/sagume/sagume-shageki.jpeg / public/icons/sagume/sagume-shageki.webp
+  劲疾技【闪电嘶鸣】 → public/icons/sagume/sagume-inazuma.png / public/icons/sagume/sagume-inazuma.jpg / public/icons/sagume/sagume-inazuma.jpeg / public/icons/sagume/sagume-inazuma.webp
+  劲疾技【浓云】 → public/icons/sagume/sagume-noun.png / public/icons/sagume/sagume-noun.jpg / public/icons/sagume/sagume-noun.jpeg / public/icons/sagume/sagume-noun.webp
+  劲疾技【兽性感染】 → public/icons/sagume/sagume-kansen.png / public/icons/sagume/sagume-kansen.jpg / public/icons/sagume/sagume-kansen.jpeg / public/icons/sagume/sagume-kansen.webp
+  劲疾技【三角追击】 → public/icons/sagume/sagume-sankaku.png / public/icons/sagume/sagume-sankaku.jpg / public/icons/sagume/sagume-sankaku.jpeg / public/icons/sagume/sagume-sankaku.webp
+  劲疾技【黑色天马流星弹】 → public/icons/sagume/sagume-tenma-ryuusei.png / public/icons/sagume/sagume-tenma-ryuusei.jpg / public/icons/sagume/sagume-tenma-ryuusei.jpeg / public/icons/sagume/sagume-tenma-ryuusei.webp
+  劲牙【鬼形的乌合之众】 → public/icons/sagume/sagume-ugou.png / public/icons/sagume/sagume-ugou.jpg / public/icons/sagume/sagume-ugou.jpeg / public/icons/sagume/sagume-ugou.webp
+  天星马【天马十字】 → public/icons/sagume/sagume-cross.png / public/icons/sagume/sagume-cross.jpg / public/icons/sagume/sagume-cross.jpeg / public/icons/sagume/sagume-cross.webp
+
+【封兽鵺】 id=nue
+  妖云「平安时代的黑云」 → public/icons/nue/nue-kuro.png / public/icons/nue/nue-kuro.jpg / public/icons/nue/nue-kuro.jpeg / public/icons/nue/nue-kuro.webp
+  鵺符「鵺的蛇行表演」 → public/icons/nue/nue-hebi.png / public/icons/nue/nue-hebi.jpg / public/icons/nue/nue-hebi.jpeg / public/icons/nue/nue-hebi.webp
+  真相不明「愤怒的红色UFO袭来」 → public/icons/nue/nue-red.png / public/icons/nue/nue-red.jpg / public/icons/nue/nue-red.jpeg / public/icons/nue/nue-red.webp
+  真相不明「哀愁的蓝色UFO袭来」 → public/icons/nue/nue-blue.png / public/icons/nue/nue-blue.jpg / public/icons/nue/nue-blue.jpeg / public/icons/nue/nue-blue.webp
+  真相不明「忠义的绿色UFO袭来」 → public/icons/nue/nue-green.png / public/icons/nue/nue-green.jpg / public/icons/nue/nue-green.jpeg / public/icons/nue/nue-green.webp
+  鵺符「弹幕奇美拉」 → public/icons/nue/nue-chimera.png / public/icons/nue/nue-chimera.jpg / public/icons/nue/nue-chimera.jpeg / public/icons/nue/nue-chimera.webp
+  真相不明「恐怖的虹色UFO袭来」 → public/icons/nue/nue-rainbow.png / public/icons/nue/nue-rainbow.jpg / public/icons/nue/nue-rainbow.jpeg / public/icons/nue/nue-rainbow.webp
+  恨弓「源三位赖政之弓」 → public/icons/nue/nue-yumi.png / public/icons/nue/nue-yumi.jpg / public/icons/nue/nue-yumi.jpeg / public/icons/nue/nue-yumi.webp
+  「自行星而来的弹幕X」 → public/icons/nue/nue-danmaku-x.png / public/icons/nue/nue-danmaku-x.jpg / public/icons/nue/nue-danmaku-x.jpeg / public/icons/nue/nue-danmaku-x.webp
+  未知「原理不明的妖怪玉」 → public/icons/nue/nue-tama.png / public/icons/nue/nue-tama.jpg / public/icons/nue/nue-tama.jpeg / public/icons/nue/nue-tama.webp
+
+【帕奇】 id=patches
+  【战技替换】左弓 → public/icons/patches/patches-zuogong.png / public/icons/patches/patches-zuogong.jpg / public/icons/patches/patches-zuogong.jpeg / public/icons/patches/patches-zuogong.webp
+  【战技】弹反 → public/icons/patches/patches-danfan.png / public/icons/patches/patches-danfan.jpg / public/icons/patches/patches-danfan.jpeg / public/icons/patches/patches-danfan.webp
+  【战技】滑步 → public/icons/patches/patches-huabu.png / public/icons/patches/patches-huabu.jpg / public/icons/patches/patches-huabu.jpeg / public/icons/patches/patches-huabu.webp
+  【技符】冒火剑 → public/icons/patches/patches-maohuojian.png / public/icons/patches/patches-maohuojian.jpg / public/icons/patches/patches-maohuojian.jpeg / public/icons/patches/patches-maohuojian.webp
+  【技符】擦脂镰 → public/icons/patches/patches-cazhilian.png / public/icons/patches/patches-cazhilian.jpg / public/icons/patches/patches-cazhilian.jpeg / public/icons/patches/patches-cazhilian.webp
+  【技符】半页刀 → public/icons/patches/patches-banyedao.png / public/icons/patches/patches-banyedao.jpg / public/icons/patches/patches-banyedao.jpeg / public/icons/patches/patches-banyedao.webp
+  【技符】姥断与鬼切 → public/icons/patches/patches-laoduan.png / public/icons/patches/patches-laoduan.jpg / public/icons/patches/patches-laoduan.jpeg / public/icons/patches/patches-laoduan.webp
+  【暗术】幽邃庇护 → public/icons/patches/patches-yousui.png / public/icons/patches/patches-yousui.jpg / public/icons/patches/patches-yousui.jpeg / public/icons/patches/patches-yousui.webp
+  【后撤步，里技准备】 → public/icons/patches/patches-houtui.png / public/icons/patches/patches-houtui.jpg / public/icons/patches/patches-houtui.jpeg / public/icons/patches/patches-houtui.webp
+  【里技】攻击模组替换 → public/icons/patches/patches-riki-attack.png / public/icons/patches/patches-riki-attack.jpg / public/icons/patches/patches-riki-attack.jpeg / public/icons/patches/patches-riki-attack.webp
+
+【常世之神】 id=tokoyo
+  蝶符「Minute Scales」 → public/icons/tokoyo/tokoyo-minute.png / public/icons/tokoyo/tokoyo-minute.jpg / public/icons/tokoyo/tokoyo-minute.jpeg / public/icons/tokoyo/tokoyo-minute.webp
+  蝶符「凤蝶的鳞粉」 → public/icons/tokoyo/tokoyo-rinpun.png / public/icons/tokoyo/tokoyo-rinpun.jpg / public/icons/tokoyo/tokoyo-rinpun.jpeg / public/icons/tokoyo/tokoyo-rinpun.webp
+  蝶符「Fluttering Summer」 → public/icons/tokoyo/tokoyo-fluttering.png / public/icons/tokoyo/tokoyo-fluttering.jpg / public/icons/tokoyo/tokoyo-fluttering.jpeg / public/icons/tokoyo/tokoyo-fluttering.webp
+  蝶符「盛夏振翅」 → public/icons/tokoyo/tokoyo-seika.png / public/icons/tokoyo/tokoyo-seika.jpg / public/icons/tokoyo/tokoyo-seika.jpeg / public/icons/tokoyo/tokoyo-seika.webp
+  蝶符「Butterfly Dream」 → public/icons/tokoyo/tokoyo-dream.png / public/icons/tokoyo/tokoyo-dream.jpg / public/icons/tokoyo/tokoyo-dream.jpeg / public/icons/tokoyo/tokoyo-dream.webp
+  蝶符「沾身难下的鳞粉」 → public/icons/tokoyo/tokoyo-rinpun2.png / public/icons/tokoyo/tokoyo-rinpun2.jpg / public/icons/tokoyo/tokoyo-rinpun2.jpeg / public/icons/tokoyo/tokoyo-rinpun2.webp
+  梦蝶「Crazy Butterfly」 → public/icons/tokoyo/tokoyo-crazy.png / public/icons/tokoyo/tokoyo-crazy.jpg / public/icons/tokoyo/tokoyo-crazy.jpeg / public/icons/tokoyo/tokoyo-crazy.webp
+  蝶符「Deadly Butterfly」 → public/icons/tokoyo/tokoyo-deadly.png / public/icons/tokoyo/tokoyo-deadly.jpg / public/icons/tokoyo/tokoyo-deadly.jpeg / public/icons/tokoyo/tokoyo-deadly.webp
+  常世 [无果之花] → public/icons/tokoyo/tokoyo-mukanohana.png / public/icons/tokoyo/tokoyo-mukanohana.jpg / public/icons/tokoyo/tokoyo-mukanohana.jpeg / public/icons/tokoyo/tokoyo-mukanohana.webp
+  常世 [常夜的暴动] → public/icons/tokoyo/tokoyo-joya.png / public/icons/tokoyo/tokoyo-joya.jpg / public/icons/tokoyo/tokoyo-joya.jpeg / public/icons/tokoyo/tokoyo-joya.webp

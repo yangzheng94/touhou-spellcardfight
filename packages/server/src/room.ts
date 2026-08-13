@@ -108,13 +108,14 @@ interface Seat {
   characterId: string | null;
   pendingMove: { cardId: string | null; skillIds: string[] } | null;
   pendingDecision: { resolve: (value: number) => void; reject: (reason?: unknown) => void } | null;
+  isAI: boolean;
 }
 
 class Room {
   id: string;
   seats: Record<PlayerId, Seat> = {
-    A: { ws: null, name: "玩家A", characterId: null, pendingMove: null, pendingDecision: null },
-    B: { ws: null, name: "玩家B", characterId: null, pendingMove: null, pendingDecision: null },
+    A: { ws: null, name: "玩家A", characterId: null, pendingMove: null, pendingDecision: null, isAI: false },
+    B: { ws: null, name: "玩家B", characterId: null, pendingMove: null, pendingDecision: null, isAI: false },
   };
   state: GameState | null = null;
   seed: number;
@@ -123,6 +124,39 @@ class Room {
   constructor(id: string, seed: number) {
     this.id = id;
     this.seed = seed;
+  }
+
+  /** AI 随机选择一名角色。 */
+  aiPickCharacter(): void {
+    const chars = CHARACTERS.filter((c) => c.id !== "patches" || true); // 可扩展：排除未完成的角色
+    const idx = Math.floor(Math.random() * chars.length);
+    this.seats.B.characterId = chars[idx].id;
+    this.broadcast({ type: "characterChosen", seat: "B", characterId: chars[idx].id });
+  }
+
+  /** AI 生成本回合的 move：随机选可用符卡，冷却好的非被动技能全选。 */
+  generateAIMove(): void {
+    if (!this.state || !this.seats.B.isAI) return;
+    const seat: PlayerId = "B";
+    const player = this.state.players[seat];
+    const hand = player.character.cards.filter((c) => !player.usedCardIds.includes(c.id));
+    const cardId = hand.length > 0 ? hand[Math.floor(Math.random() * hand.length)].id : null;
+    const skillIds = player.character.skills
+      .filter((s) => !s.passive && isSkillReady(this.state!, seat, s))
+      .map((s) => s.id);
+    this.seats.B.pendingMove = { cardId, skillIds };
+  }
+
+  /** AI 对决策请求做出随机选择。 */
+  aiDecide(req: Parameters<DecisionResolver>[0]): number {
+    if (req.options && req.options.length > 0) {
+      return Math.floor(Math.random() * req.options.length);
+    }
+    if (req.range) {
+      const size = req.range.max - req.range.min + 1;
+      return req.range.min + Math.floor(Math.random() * size);
+    }
+    return 0;
   }
 
   send(who: PlayerId, msg: ServerMessage): void {
@@ -179,6 +213,11 @@ class Room {
       }
       lastLogIndex = this.state!.log.length;
 
+      // AI 玩家直接随机决策
+      if (this.seats[req.player].isAI) {
+        return Promise.resolve(this.aiDecide(req));
+      }
+
       // 发送决策请求给对应玩家
       this.send(req.player, {
         type: "decisionRequest",
@@ -204,6 +243,7 @@ class Room {
         await wait(600);
       }
     } catch (e) {
+      console.error(`[room ${this.id}] resolveMoves error:`, e);
       this.broadcast({ type: "error", message: `结算错误: ${(e as Error).message}` });
       this.isResolving = false;
       return;
@@ -277,9 +317,12 @@ export function attachWebSocket(wss: WebSocketServer): void {
       if (conn.roomId && conn.seat) {
         const room = rooms.get(conn.roomId);
         if (room) {
-          room.seats[conn.seat].ws = null;
           const opp = conn.seat === "A" ? "B" : "A";
           room.send(opp, { type: "opponentLeft" });
+          // 双方都离开（含单人房的 AI 空位）则删除房间
+          if (!room.seats.A.ws && !room.seats.B.ws) {
+            rooms.delete(conn.roomId);
+          }
         }
       }
     });
@@ -299,11 +342,29 @@ function handle(conn: Conn, msg: ClientMessage): void {
       send(conn.ws, { type: "roomCreated", roomId: id, seat: "A" });
       break;
     }
+    case "createSinglePlayerRoom": {
+      const id = makeRoomId();
+      const room = new Room(id, seedCounter++);
+      rooms.set(id, room);
+      room.seats.A.ws = conn.ws;
+      room.seats.A.name = msg.name ?? "玩家A";
+      room.seats.B.isAI = true;
+      room.seats.B.name = "简单人机";
+      conn.roomId = id;
+      conn.seat = "A";
+      console.log(`[server] single player room ${id} created`);
+      send(conn.ws, { type: "roomCreated", roomId: id, seat: "A" });
+      // AI 自动随机选将
+      room.aiPickCharacter();
+      console.log(`[server] AI picked character ${room.seats.B.characterId}`);
+      break;
+    }
     case "joinRoom": {
       const room = rooms.get(msg.roomId.toUpperCase());
       if (!room) return send(conn.ws, { type: "error", message: "房间不存在" });
       if (room.seats.B.ws) return send(conn.ws, { type: "error", message: "房间已满" });
       room.seats.B.ws = conn.ws;
+      room.seats.B.isAI = false; // 真人加入后取消 AI 标志，避免单人房被误加入后由 AI 代打。
       room.seats.B.name = msg.name ?? "玩家B";
       conn.roomId = room.id;
       conn.seat = "B";
@@ -325,9 +386,13 @@ function handle(conn: Conn, msg: ClientMessage): void {
       break;
     }
     case "submitMove": {
+      console.log(`[server] submitMove from ${conn.seat} in room ${conn.roomId}: card=${msg.cardId} skills=${JSON.stringify(msg.skillIds)}`);
       if (!conn.roomId || !conn.seat) return;
       const room = rooms.get(conn.roomId);
-      if (!room || !room.state) return;
+      if (!room || !room.state) {
+        console.log(`[server] submitMove rejected: room=${!!room} state=${!!room?.state}`);
+        return;
+      }
 
       const seat = conn.seat;
       const opp = seat === "A" ? "B" : "A";
@@ -335,22 +400,41 @@ function handle(conn: Conn, msg: ClientMessage): void {
       // 觉/圣娅的「预知」：拥有 foresight 的一方必须等对手先提交，才能看到对方选择。
       const selfHasForesight = room.state.players[seat].flags["foresight"] === true;
       if (selfHasForesight && !room.seats[opp].pendingMove) {
+        // 单人模式：AI 不会主动提交，先自动生成 AI move 并 reveal 给本方，再由本方重新提交。
+        if (room.seats[opp].isAI) {
+          room.generateAIMove();
+          room.state.players[seat].flags["_foresight_triggered"] = true;
+          room.state.players[seat].flags["foresight"] = false;
+          send(conn.ws, {
+            type: "foresightReveal",
+            opponentCard: room.seats[opp].pendingMove!.cardId,
+            opponentSkills: room.seats[opp].pendingMove!.skillIds,
+          });
+          return;
+        }
         return send(conn.ws, { type: "error", message: "请先等待对方选择符卡" });
       }
 
       // 保存当前玩家的 move。
       room.seats[seat].pendingMove = { cardId: msg.cardId, skillIds: msg.skillIds };
 
+      // 单人模式：若对手是 AI 且尚未提交，自动生成 AI move。
+      if (room.seats[opp].isAI && !room.seats[opp].pendingMove) {
+        room.generateAIMove();
+      }
+
       // 若对手拥有 foresight 且尚未提交，则向对手 reveal 本方的选择。
       const oppHasForesight = room.state.players[opp].flags["foresight"] === true;
       if (oppHasForesight && !room.seats[opp].pendingMove) {
         room.state.players[opp].flags["_foresight_triggered"] = true;
         room.state.players[opp].flags["foresight"] = false;
-        send(room.seats[opp].ws!, {
-          type: "foresightReveal",
-          opponentCard: msg.cardId,
-          opponentSkills: msg.skillIds,
-        });
+        if (room.seats[opp].ws) {
+          send(room.seats[opp].ws, {
+            type: "foresightReveal",
+            opponentCard: msg.cardId,
+            opponentSkills: msg.skillIds,
+          });
+        }
         send(conn.ws, { type: "waitingForOpponent" });
         break;
       }
@@ -379,6 +463,10 @@ function handle(conn: Conn, msg: ClientMessage): void {
       room.seats.B.characterId = null;
       room.seats.A.pendingMove = null;
       room.seats.B.pendingMove = null;
+      // 单人模式：AI 座位自动重新选将，否则重赛后 B 永远无法选将导致卡死。
+      if (room.seats.B.isAI) {
+        room.aiPickCharacter();
+      }
       room.broadcast(rosterMessage());
       break;
     }

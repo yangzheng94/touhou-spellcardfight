@@ -1,6 +1,7 @@
 import type { CharacterInfo, GameView, LogEntry } from "./protocol.js";
-import { getCardIcon } from "./icons/youmu.js";
+import { getCardIcon, installCardIconFallback } from "./icons/index.js";
 import { getPortraitOrFallback, type PortraitState } from "./portraits.js";
+import { playRandomBattleBGM, stopBGM, toggleMute, getMuteState } from "./bgm.js";
 
 const app = document.getElementById("app")!;
 
@@ -138,7 +139,7 @@ interface State {
   oppSelectedCard: string | null;
   oppSelectedSkills: string[];
   gameOver: boolean;
-  gameOverWinner: "A" | "B" | null;
+  gameOverWinner: "A" | "B" | "draw" | null;
   hurtUntilMe: number;
   hurtUntilO: number;
 }
@@ -179,6 +180,9 @@ const protocol = location.protocol === "https:" ? "wss:" : "ws:";
 const wsUrl = import.meta.env.VITE_WS_URL || `${protocol}//${location.host}/ws`;
 const ws = new WebSocket(wsUrl);
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+// 安装符卡图标格式回退函数（支持 png/jpg/jpeg/webp 自动探测）
+installCardIconFallback();
 
 ws.onopen = () => {
   console.log("[ws] connected");
@@ -225,6 +229,8 @@ ws.onmessage = (ev) => {
       state.tempCharSelect = null;
       state.oppSelectedCard = null;
       state.oppSelectedSkills = [];
+      // 开始对战 BGM：从双方角色中随机选一人播放
+      void playRandomBattleBGM(msg.yourChar.id, msg.oppChar.id);
       render();
       break;
     case "waitingForOpponent":
@@ -286,8 +292,13 @@ ws.onmessage = (ev) => {
       state.view = msg.view;
       state.gameOver = true;
       state.gameOverWinner = msg.winner || null;
+      stopBGM();
       render();
-      showBanner(`游戏结束！${msg.winner === state.you ? "你赢了" : "你输了"}`);
+      if (msg.winner === "draw") {
+        showBanner("游戏结束！🤝 平局");
+      } else {
+        showBanner(`游戏结束！${msg.winner === state.you ? "你赢了" : "你输了"}`);
+      }
       break;
     case "decisionRequest":
       state.decision = { prompt: msg.prompt, options: msg.options, range: msg.range };
@@ -298,6 +309,7 @@ ws.onmessage = (ev) => {
       break;
     case "opponentLeft":
       showBanner("对手已离开房间");
+      stopBGM();
       resetToLobby();
       render();
       break;
@@ -343,26 +355,27 @@ function renderGameOver(): void {
   const me = v.players[my];
   const opp = v.players[fo];
   
+  const isDraw = winner === "draw";
   const myWon = winner === my;
-  const myState: PortraitState = myWon ? "win" : "lose";
-  const oppState: PortraitState = myWon ? "lose" : "win";
+  const myState: PortraitState = isDraw ? "normal" : myWon ? "win" : "lose";
+  const oppState: PortraitState = isDraw ? "normal" : myWon ? "lose" : "win";
   
   app.innerHTML = `
     <div class="gameover-screen">
       <div class="gameover-header">
-        <h1 class="gameover-title">${myWon ? "🎉 胜利！" : "💔 失败"}</h1>
+        <h1 class="gameover-title">${isDraw ? "🤝 平局" : myWon ? "🎉 胜利！" : "💔 失败"}</h1>
       </div>
       <div class="gameover-portraits">
-        <div class="gameover-char ${myWon ? "winner" : "loser"}">
+        <div class="gameover-char ${isDraw ? "draw" : myWon ? "winner" : "loser"}">
           <div class="gameover-portrait-box">${getPortraitOrFallback(me.characterId, myState)}</div>
           <div class="gameover-name">${me.characterName}（你）</div>
-          <div class="gameover-label">${myWon ? "胜利" : "失败"}</div>
+          <div class="gameover-label">${isDraw ? "平局" : myWon ? "胜利" : "失败"}</div>
         </div>
         <div class="gameover-vs">VS</div>
-        <div class="gameover-char ${myWon ? "loser" : "winner"}">
+        <div class="gameover-char ${isDraw ? "draw" : myWon ? "loser" : "winner"}">
           <div class="gameover-portrait-box">${getPortraitOrFallback(opp.characterId, oppState)}</div>
           <div class="gameover-name">${opp.characterName}（对手）</div>
-          <div class="gameover-label">${myWon ? "失败" : "胜利"}</div>
+          <div class="gameover-label">${isDraw ? "平局" : myWon ? "失败" : "胜利"}</div>
         </div>
       </div>
       <div class="gameover-actions">
@@ -381,6 +394,7 @@ function renderGameOver(): void {
 }
 
 function resetToLobby(): void {
+  stopBGM();
   state.roomId = null;
   state.seat = null;
   state.view = null;
@@ -415,14 +429,16 @@ function renderLobby(): void {
       <p class="lobby-subtitle">符卡对抗 · 联机对战</p>
       <div class="lobby-panel">
         <button id="btn-create" class="btn-primary">创建房间</button>
+        <button id="btn-single" class="btn-primary" style="background: linear-gradient(135deg, #6a5af9, #d66efd);">单人模式</button>
         <div class="join-row">
           <input id="room-input" class="input-field" maxlength="4" placeholder="房间码" />
           <button id="btn-join" class="btn-secondary">加入</button>
         </div>
       </div>
-      <p class="hint">创建房间后，把 4 位房间码告诉朋友即可对战。</p>
+      <p class="hint">创建房间后，把 4 位房间码告诉朋友即可对战；单人模式将随机匹配一名简单人机。</p>
     </div>`;
   document.getElementById("btn-create")!.onclick = () => net.send({ type: "createRoom" });
+  document.getElementById("btn-single")!.onclick = () => net.send({ type: "createSinglePlayerRoom" });
   document.getElementById("btn-join")!.onclick = () => {
     const v = (document.getElementById("room-input") as HTMLInputElement).value.trim().toUpperCase();
     if (v) net.send({ type: "joinRoom", roomId: v });
@@ -648,6 +664,10 @@ function renderBattle(): void {
         </div>
       </div>
 
+      <button id="btn-bgm" class="bgm-control ${getMuteState() ? "muted" : ""}" title="BGM 开关">
+        ${getMuteState() ? "🔇" : "🔊"}
+      </button>
+
       ${state.showSkillPanel ? renderSkillPanel(me, opp) : ""}
       ${state.decision ? renderDecision(state.decision) : ""}
     </div>`;
@@ -712,6 +732,14 @@ function renderBattle(): void {
     };
   } else {
     console.warn("[btn-skill-panel] not found");
+  }
+
+  const btnBgm = document.getElementById("btn-bgm");
+  if (btnBgm) {
+    btnBgm.onclick = () => {
+      toggleMute();
+      render();
+    };
   }
 
 }

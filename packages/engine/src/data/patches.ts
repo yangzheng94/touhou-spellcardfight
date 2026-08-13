@@ -8,7 +8,6 @@ import {
   dealPhysical,
   immune,
   addAbsorb,
-  cardPowerOf,
 } from "../effects.js";
 import { resolvePower } from "../power.js";
 import { addBuff, consumeTrigger, getRes, setRes, setFlag } from "../buffs.js";

@@ -393,3 +393,109 @@ describe("帕奇·弹反", () => {
     expect(state.damageHistory[1].B.physical).toBe(10);
   });
 });
+
+describe("回合上限规则", () => {
+  function makeDummies(prefix: string, count: number): Card[] {
+    return Array.from({ length: count }, (_, i) => card(`${prefix}-${i}`, `${prefix}${i}`, 0, {}));
+  }
+
+  it("10 回合后未分胜负，血量高的一方获胜", async () => {
+    const aCards = makeDummies("a", 10);
+    const bCards = makeDummies("b", 10);
+    const state = newGame(charWith("A", 35, aCards), charWith("B", 30, bCards), { seed: 1 });
+
+    for (let i = 0; i < 10; i++) {
+      expect(state.winner).toBeNull();
+      await playTurn(state, { cardId: aCards[i].id }, { cardId: bCards[i].id });
+    }
+
+    expect(state.turn).toBe(10);
+    expect(state.winner).toBe("A");
+  });
+
+  it("10 回合后血量相同则平局", async () => {
+    const aCards = makeDummies("a", 10);
+    const bCards = makeDummies("b", 10);
+    const state = newGame(charWith("A", 30, aCards), charWith("B", 30, bCards), { seed: 1 });
+
+    for (let i = 0; i < 10; i++) {
+      await playTurn(state, { cardId: aCards[i].id }, { cardId: bCards[i].id });
+    }
+
+    expect(state.turn).toBe(10);
+    expect(state.winner).toBe("draw");
+  });
+
+  it("10 回合内已分胜负则不触发回合上限", async () => {
+    const attack = card("atk", "攻击", 30, {});
+    const aCards = [attack, ...makeDummies("a", 9)];
+    const bCards = makeDummies("b", 10);
+    const state = newGame(charWith("A", 30, aCards), charWith("B", 10, bCards), { seed: 1 });
+
+    await playTurn(state, { cardId: "atk" }, { cardId: bCards[0].id });
+    expect(state.winner).toBe("A");
+    expect(state.turn).toBe(1);
+  });
+});
+
+describe("获知/预知（foresight）时序", () => {
+  // 获知（圣娅 seija-miraishi）与预知（觉 satori-onryou）共用的机制：
+  // 宣告当回合设置 foresight，效果在下一回合提交阶段由服务器消费，因此回合结束不能清除。
+  function foresightState(char: Character, oppHp = 60) {
+    const oppCards = Array.from({ length: 10 }, (_, i) => card(`fopp-${i}`, `fopp${i}`, 0, {}));
+    const opp = charWith("对手", oppHp, oppCards);
+    return newGame(char, opp, { seed: 1 });
+  }
+
+  it("宣告获知后 foresight 跨回合保留，回合结束不清除", async () => {
+    const state = foresightState(seija);
+    const seijaCards = seija.cards.map((c) => c.id);
+
+    // T1: A 宣告「获知」，回合结束 foresight 应保留（供下一回合提交阶段消费）
+    await playTurn(state, { cardId: seijaCards[0], skillIds: ["seija-miraishi"] }, { cardId: "fopp-0" });
+    expect(state.players.A.flags["foresight"]).toBe(true);
+    expect(state.players.A.flags["_foresight_triggered"]).toBe(false);
+
+    // T2: 未重新宣告，foresight 仍应保留
+    await playTurn(state, { cardId: seijaCards[1], skillIds: [] }, { cardId: "fopp-1" });
+    expect(state.players.A.flags["foresight"]).toBe(true);
+    expect(state.players.A.flags["_foresight_triggered"]).toBe(false);
+  });
+
+  it("服务器消费后 foresight 清除，_foresight_triggered 回合末复位，冷却后可再次宣告", async () => {
+    const state = foresightState(seija);
+    const seijaCards = seija.cards.map((c) => c.id);
+
+    await playTurn(state, { cardId: seijaCards[0], skillIds: ["seija-miraishi"] }, { cardId: "fopp-0" });
+    expect(state.players.A.flags["foresight"]).toBe(true);
+
+    // 模拟服务器在 T2 提交阶段消费 foresight（向本方 reveal 对手选择）
+    state.players.A.flags["_foresight_triggered"] = true;
+    state.players.A.flags["foresight"] = false;
+    await playTurn(state, { cardId: seijaCards[1], skillIds: [] }, { cardId: "fopp-1" });
+    // 回合结束：_foresight_triggered 复位，foresight 保持 false（不会再次被清除/置回）
+    expect(state.players.A.flags["foresight"]).toBe(false);
+    expect(state.players.A.flags["_foresight_triggered"]).toBe(false);
+
+    // T3: 冷却中，不能再次宣告
+    await playTurn(state, { cardId: seijaCards[2], skillIds: [] }, { cardId: "fopp-2" });
+    expect(state.players.A.flags["foresight"]).toBe(false);
+
+    // T4: 冷却（3 回合）已过，可再次宣告获知
+    await playTurn(state, { cardId: seijaCards[3], skillIds: ["seija-miraishi"] }, { cardId: "fopp-3" });
+    expect(state.players.A.flags["foresight"]).toBe(true);
+    expect(state.players.A.flags["_foresight_triggered"]).toBe(false);
+  });
+
+  it("觉的「怨灵也为之恐惧的少女」同样跨回合保留", async () => {
+    const state = foresightState(satori);
+    const satoriCards = satori.cards.map((c) => c.id);
+
+    await playTurn(state, { cardId: satoriCards[0], skillIds: ["satori-onryou"] }, { cardId: "fopp-0" });
+    expect(state.players.B.flags["foresight"]).toBeUndefined();
+    expect(state.players.A.flags["foresight"]).toBe(true);
+
+    await playTurn(state, { cardId: satoriCards[1], skillIds: [] }, { cardId: "fopp-1" });
+    expect(state.players.A.flags["foresight"]).toBe(true);
+  });
+});

@@ -1,0 +1,124 @@
+/**
+ * BGM 系统
+ *
+ * 约定：
+ * - BGM 文件放在 /bgm/ 目录下（即 public/bgm/）
+ * - 文件名与角色 id 对应，如 youmu.mp3、reimu.mp3
+ * - 支持 .mp3 / .ogg / .wav，优先尝试 .mp3
+ *
+ * 开始对战时会从对战双方角色中随机选一人，播放其对应 BGM。
+ * 若文件不存在或播放失败，则静默跳过，不影响游戏。
+ */
+
+const BGM_BASE = "/bgm";
+const SUPPORTED_EXTS = ["mp3", "ogg", "wav"];
+
+let currentAudio: HTMLAudioElement | null = null;
+let currentCharacterId: string | null = null;
+let masterVolume = 0.6;
+let isMuted = false;
+
+function makeBgmUrl(characterId: string, ext: string): string {
+  return `${BGM_BASE}/${characterId}.${ext}`;
+}
+
+/**
+ * 尝试按扩展名优先级找到可播放的 BGM。
+ * 浏览器会在 <audio> 加载失败时触发 error，因此用 canplay 事件判断首个可用格式。
+ */
+function tryLoadAudio(characterId: string): Promise<HTMLAudioElement | null> {
+  return new Promise((resolve) => {
+    let index = 0;
+
+    const attempt = () => {
+      if (index >= SUPPORTED_EXTS.length) {
+        resolve(null);
+        return;
+      }
+      const ext = SUPPORTED_EXTS[index++];
+      const audio = new Audio(makeBgmUrl(characterId, ext));
+      audio.preload = "auto";
+
+      const onCanPlay = () => {
+        cleanup();
+        resolve(audio);
+      };
+      const onError = () => {
+        cleanup();
+        attempt();
+      };
+      const cleanup = () => {
+        audio.removeEventListener("canplaythrough", onCanPlay);
+        audio.removeEventListener("error", onError);
+      };
+
+      audio.addEventListener("canplaythrough", onCanPlay);
+      audio.addEventListener("error", onError);
+      audio.load();
+    };
+
+    attempt();
+  });
+}
+
+/** 随机选择对战双方中的一人并播放其 BGM。 */
+export async function playRandomBattleBGM(characterAId: string, characterBId: string): Promise<void> {
+  stopBGM();
+
+  const characterId = Math.random() < 0.5 ? characterAId : characterBId;
+  currentCharacterId = characterId;
+
+  const audio = await tryLoadAudio(characterId);
+  if (!audio) {
+    console.log(`[BGM] 未找到角色 ${characterId} 的 BGM`);
+    return;
+  }
+
+  audio.loop = true;
+  audio.volume = isMuted ? 0 : masterVolume;
+  currentAudio = audio;
+
+  try {
+    await audio.play();
+    console.log(`[BGM] 播放 ${characterId}`);
+  } catch (err) {
+    // 自动播放策略等导致失败时静默处理
+    console.log("[BGM] 播放失败:", err);
+    currentAudio = null;
+  }
+}
+
+/** 停止当前 BGM。 */
+export function stopBGM(): void {
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+    currentAudio = null;
+  }
+  currentCharacterId = null;
+}
+
+/** 设置 BGM 音量（0~1）。 */
+export function setBGMVolume(volume: number): void {
+  masterVolume = Math.max(0, Math.min(1, volume));
+  if (currentAudio && !isMuted) {
+    currentAudio.volume = masterVolume;
+  }
+}
+
+/** 切换静音状态，返回是否已静音。 */
+export function toggleMute(): boolean {
+  isMuted = !isMuted;
+  if (currentAudio) {
+    currentAudio.volume = isMuted ? 0 : masterVolume;
+  }
+  return isMuted;
+}
+
+export function getMuteState(): boolean {
+  return isMuted;
+}
+
+export function getCurrentBGMCharacter(): string | null {
+  return currentCharacterId;
+}

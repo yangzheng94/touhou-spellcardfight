@@ -485,6 +485,37 @@ body {
   min-width: 0;
 }
 
+.bgm-control {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 100;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(154, 143, 184, 0.4);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow);
+  transition: transform var(--transition-fast), background var(--transition-fast);
+}
+
+.bgm-control:hover {
+  transform: scale(1.1);
+  background: var(--panel2);
+}
+
+.bgm-control.muted {
+  opacity: 0.7;
+  background: rgba(37, 31, 56, 0.6);
+}
+
 .battle-sidebar {
   display: flex;
   flex-direction: column;
@@ -1231,7 +1262,7 @@ body {
 
 .card-portrait {
   width: 100%;
-  height: 90px;
+  height: 110px;
   background: linear-gradient(135deg, rgba(123, 108, 246, 0.1), rgba(225, 91, 143, 0.1));
   border-radius: 10px;
   margin-bottom: 10px;
@@ -1261,6 +1292,7 @@ body {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center 15%; /* 聚焦上半部分，避免切头 */
   transition: transform 0.3s ease;
   display: block;
 }
@@ -1769,6 +1801,11 @@ body {
 
 .loser .gameover-label {
   background: rgba(154, 143, 184, 0.3);
+  color: var(--muted);
+}
+
+.draw .gameover-label {
+  background: rgba(154, 143, 184, 0.25);
   color: var(--muted);
 }
 

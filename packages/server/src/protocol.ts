@@ -60,6 +60,7 @@ export interface GameView {
 /** 客户端 → 服务器 */
 export type ClientMessage =
   | { type: "createRoom"; name?: string }
+  | { type: "createSinglePlayerRoom"; name?: string }
   | { type: "joinRoom"; roomId: string; name?: string }
   | { type: "selectCharacter"; characterId: string }
   | { type: "submitMove"; cardId: string | null; skillIds: string[] }

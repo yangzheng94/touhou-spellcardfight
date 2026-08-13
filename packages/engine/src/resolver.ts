@@ -36,7 +36,7 @@ export interface DecisionResolver {
     prompt: string;
     options: string[];
     range?: { min: number; max: number };
-  }): number;
+  }): number | Promise<number>;
 }
 
 /** 一个「效果源」：符卡 / 技能 / buff。 */
@@ -294,14 +294,29 @@ export async function resolveTurn(
   state.players.A.flags["transfer_negative"] = false;
   state.players.B.flags["transfer_negative"] = false;
 
-  // 清除获知相关标志
-  state.players.A.flags["foresight"] = false;
-  state.players.B.flags["foresight"] = false;
+  // 清除获知相关标志：foresight 需要跨回合保留（宣告当回合设置、下一回合提交阶段由服务器消费），
+  // 因此回合结束时只复位 _foresight_triggered（“本次已消费”标记），不删除 foresight 本身。
   state.players.A.flags["_foresight_triggered"] = false;
   state.players.B.flags["_foresight_triggered"] = false;
 
   state.rngState = rng.getState();
   checkWin(state);
+
+  // 10 回合限制：仍未分出胜负时，血量高的一方获胜。
+  if (!state.winner && state.turn >= 10) {
+    const hpA = state.players.A.hp;
+    const hpB = state.players.B.hp;
+    if (hpA > hpB) {
+      state.winner = "A";
+      log("apply", `第 ${state.turn} 回合结束，双方仍未分出胜负，A 血量更高（${hpA} > ${hpB}）获胜`, undefined, "info");
+    } else if (hpB > hpA) {
+      state.winner = "B";
+      log("apply", `第 ${state.turn} 回合结束，双方仍未分出胜负，B 血量更高（${hpB} > ${hpA}）获胜`, undefined, "info");
+    } else {
+      state.winner = "draw";
+      log("apply", `第 ${state.turn} 回合结束，双方仍未分出胜负且血量相同（${hpA}），平局`, undefined, "info");
+    }
+  }
 
   return state;
 }
