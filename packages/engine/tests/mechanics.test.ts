@@ -288,17 +288,17 @@ describe("apply 阶段追加触发（半人半灵式）", () => {
 });
 
 describe("圣娅·幻觉机制", () => {
-  it("凝光幻剑在正常 clash 外再按威力差造成物理伤害", async () => {
+  it("凝光幻剑替代威力对抗：双方按各自最终威力直接互砍", async () => {
     const gyoukou = seija.cards.find((c) => c.id === "seija-gyoukou")!;
     const dummyB = card("dB", "空B", 0, {});
     const attacker: Character = { ...seija, cards: [gyoukou] };
     const defender = charWith("B", 30, [dummyB]);
     const state = newGame(attacker, defender, { seed: 1 });
 
-    // 凝光幻剑威力 5 vs 空卡 0：clash 5 + 效果威力差 5 = 10 物理，+ 1 层幻觉（1 法术）
+    // 凝光幻剑威力 5 vs 空卡 0：跳过威力对拼，A 直接造成 5 物理，+ 1 层幻觉（1 法术）
     await playTurn(state, { cardId: "seija-gyoukou" }, { cardId: "dB" });
 
-    expect(state.damageHistory[0].B.physical).toBe(10);
+    expect(state.damageHistory[0].B.physical).toBe(5);
     expect(state.damageHistory[0].B.spell).toBe(1);
     expect(state.players.B.resources["illusion"]).toBe(1);
   });

@@ -13,11 +13,6 @@ import { resolvePower } from "../power.js";
 import { addBuff, getRes, setRes, addRes, setFlag, getFlag } from "../buffs.js";
 import type { PlayerId } from "../types.js";
 
-/** 为复制对方效果创建 EffectContext（self/foe 互换）。 */
-function ecForCopy(ec: EffectContext): EffectContext {
-  return { ctx: ec.ctx, self: ec.foe, foe: ec.self };
-}
-
 /** 给目标施加一层幻觉，同时造成 1 点法术伤害，并更新/创建显示层数的 BUFF。 */
 function addIllusion(ec: EffectContext, target: PlayerId) {
   addRes(ec, target, "illusion", 1);
@@ -152,19 +147,33 @@ export const seija: Character = {
       id: "seija-gyoukou",
       name: "幻狐【凝光幻剑】",
       power: 5,
-      text: "按双方威力差直接对敌方造成物理伤害，并进行1次幻觉判定；若威力差大于5则再追加1次幻觉判定",
+      text: "替代威力对抗：双方跳过对拼，按各自最终威力直接互砍；对敌方进行1次幻觉判定，己方伤害大于5时追加1次",
       tags: ["spell-damage"],
       script: {
-        // 效果处理：在正常 clash 之外，再按实际威力差的绝对值对敌方造成一次物理伤害。
-        damage: (ec) => {
+        // 替代威力对抗（仿「圣德太子的天马」）：移除威力对拼已入队的物理伤害，
+        // 双方按各自修正后的最终威力直接扣除对方血量，并按己方打出的伤害对敌方进行幻觉判定。
+        clash: (ec) => {
+          const cd = ec.ctx.clashDamage;
+          if (cd) {
+            ec.ctx.pending = ec.ctx.pending.filter(
+              (p) =>
+                !(
+                  p.type === "physical" &&
+                  p.source === cd.source &&
+                  p.target === cd.target &&
+                  p.amount === cd.amount
+                ),
+            );
+            ec.ctx.clashDamage = null;
+          }
           const selfPower = resolvePower(ec.ctx.power[ec.self]);
           const foePower = resolvePower(ec.ctx.power[ec.foe]);
-          const diff = Math.abs(selfPower - foePower);
-          if (diff > 0) {
-            dealPhysical(ec, diff);
+          if (selfPower > 0) {
+            dealPhysical(ec, selfPower, ec.foe, ec.self);
             addIllusion(ec, ec.foe);
-            if (diff > 5) addIllusion(ec, ec.foe);
+            if (selfPower > 5) addIllusion(ec, ec.foe);
           }
+          if (foePower > 0) dealPhysical(ec, foePower, ec.self, ec.foe);
         },
       },
     },
@@ -241,37 +250,20 @@ export const seija: Character = {
       id: "seija-inyou",
       name: "无想【阴阳螺旋】",
       power: 4,
-      text: "复制对方符卡效果，同时将对手的符卡效果无效",
+      text: "互换双方符卡效果：本回合双方执行对方符卡的效果（威力不换）",
       tags: ["reverse"],
       script: {
-        priority: (ec) => {
-          // 使对方符卡效果无效
-          ec.ctx.effectNegated[ec.foe] = true;
-        },
-        // 复制对方符卡效果：在对方符卡的所有阶段执行对方的 script
+        // 互换双方符卡效果：在 turnStart 一次性把两张符卡的 script 对调。
+        // 由于 turnStart 阶段的效果源在互换前已收集，双方本回合都只会执行换来的效果。
         turnStart: (ec) => {
+          const selfCard = ec.ctx.cards[ec.self];
           const foeCard = ec.ctx.cards[ec.foe];
-          if (foeCard?.script?.turnStart) foeCard.script.turnStart(ecForCopy(ec));
-        },
-        power: (ec) => {
-          const foeCard = ec.ctx.cards[ec.foe];
-          if (foeCard?.script?.power) foeCard.script.power(ecForCopy(ec));
-        },
-        clash: (ec) => {
-          const foeCard = ec.ctx.cards[ec.foe];
-          if (foeCard?.script?.clash) foeCard.script.clash(ecForCopy(ec));
-        },
-        damage: (ec) => {
-          const foeCard = ec.ctx.cards[ec.foe];
-          if (foeCard?.script?.damage) foeCard.script.damage(ecForCopy(ec));
-        },
-        apply: (ec) => {
-          const foeCard = ec.ctx.cards[ec.foe];
-          if (foeCard?.script?.apply) foeCard.script.apply(ecForCopy(ec));
-        },
-        turnEnd: (ec) => {
-          const foeCard = ec.ctx.cards[ec.foe];
-          if (foeCard?.script?.turnEnd) foeCard.script.turnEnd(ecForCopy(ec));
+          if (selfCard && foeCard) {
+            const tmp = selfCard.script;
+            selfCard.script = foeCard.script;
+            foeCard.script = tmp;
+            ec.ctx.log({ type: "info", msg: "阴阳螺旋：互换双方符卡效果" });
+          }
         },
       },
     },
@@ -286,8 +278,10 @@ export const seija: Character = {
         apply: async (ec) => {
           // 如果受到法术伤害，请求选择一张幻觉符卡
           if (ec.ctx.dealt[ec.self].spell > 0) {
-            const illuCards = ec.ctx.state.players[ec.self].character.cards.filter(
-              (c) => c.text.includes("幻觉")
+            // 只能选择本场对战尚未使用过、效果中带幻觉判定的符卡
+            const me = ec.ctx.state.players[ec.self];
+            const illuCards = me.character.cards.filter(
+              (c) => c.text.includes("幻觉") && !me.usedCardIds.includes(c.id)
             );
             if (illuCards.length > 0) {
               const idx = await requestDecision(

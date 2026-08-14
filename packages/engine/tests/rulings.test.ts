@@ -14,6 +14,7 @@ import { reimu } from "../src/data/reimu.js";
 import { koishi } from "../src/data/koishi.js";
 import { sagume } from "../src/data/sagume.js";
 import { patchouli } from "../src/data/patchouli.js";
+import { seija } from "../src/data/seija.js";
 
 function card(id: string, name: string, power: number, script: EffectScript, tags: Card["tags"] = []): Card {
   return { id, name, power, text: name, tags, script };
@@ -173,4 +174,60 @@ describe("已裁决修正的行为规范", () => {
     // A 先祖托梦 5*2=10 vs 被强制打出的 12 → A 受 2 物理
     expect(state.damageHistory[0].A.physical).toBe(2);
   });
+  it("正邪「阴阳螺旋」：互换双方符卡效果（威力不换）", async () => {
+    const inyou = seija.cards.find((c) => c.id === "seija-inyou")!;
+    const foeCard = card("foe", "对方卡", 2, { damage: (ec) => dealSpell(ec, 5) });
+    const state = createGameState({ ...seija }, charWith("B", 40, [foeCard]), 1);
+    await resolveTurn(state, { card: inyou, skills: [] }, { card: foeCard, skills: [] });
+    // 效果互换后：A 执行对方的伤害效果（对 B 造成 5 法术），B 的效果被换走不再生效
+    // 威力不换：A=4 vs B=2 → B 还受 2 物理
+    expect(state.damageHistory[0].A.physical).toBe(0);
+    expect(state.damageHistory[0].B.physical).toBe(2);
+    expect(state.damageHistory[0].B.spell).toBe(5);
+  });
+
+  it("正邪「凝光幻剑」：替代威力对抗，双方按最终威力直接互砍", async () => {
+    const gyoukou = seija.cards.find((c) => c.id === "seija-gyoukou")!;
+    const state = createGameState({ ...seija }, charWith("B", 40, [card("foe", "对方", 8, {})]), 1);
+    await resolveTurn(state, { card: gyoukou, skills: [] }, { card: card("foe", "对方", 8, {}), skills: [] });
+    // 无威力对拼差伤害：A 受 8，B 受 5 + 1 次幻觉（5 不>5，仅基础 1 次）
+    expect(state.damageHistory[0].A.physical).toBe(8);
+    expect(state.damageHistory[0].B.physical).toBe(5);
+    expect(state.damageHistory[0].B.spell).toBe(1);
+  });
+
+  it("正邪「凝光幻剑」：己方伤害大于5时追加1次幻觉判定", async () => {
+    const gyoukou = seija.cards.find((c) => c.id === "seija-gyoukou")!;
+    const state = createGameState({ ...seija }, charWith("B", 40, [card("foe", "对方", 1, {})]), 1);
+    state.players.A.buffs.push(powerBuff("t-buff", 3));
+    await resolveTurn(state, { card: gyoukou, skills: [] }, { card: card("foe", "对方", 1, {}), skills: [] });
+    // A 最终 5+3=8 >5 → B 受 8 物理 + 2 次幻觉（8 法术）；B 威力 1 直接打 A 1 物理
+    expect(state.damageHistory[0].A.physical).toBe(1);
+    expect(state.damageHistory[0].B.physical).toBe(8);
+    expect(state.damageHistory[0].B.spell).toBe(2);
+  });
+
+  it("正邪「心空妙有」：追加使用的幻觉符卡需为本场未使用过", async () => {
+    const shinku = seija.cards.find((c) => c.id === "seija-shinku")!;
+    // B 威力 6，其伤害效果对 A 造成 5 法术（触发心空妙有）
+    const foeCard = card("foe", "对方", 6, { damage: (ec) => dealSpell(ec, 5) });
+    const decide: DecisionResolver = async () => 0;
+    const state = createGameState({ ...seija }, charWith("B", 40, [foeCard]), 1);
+    // 银色荆棘已被使用 → 不应出现在可追加列表中
+    state.players.A.usedCardIds.push("seija-ginjou");
+    await resolveTurn(
+      state,
+      { card: shinku, skills: [] },
+      { card: foeCard, skills: [] },
+      decide,
+    );
+    // A 免疫物理；B 的 5 法术打中 A
+    expect(state.damageHistory[0].A.physical).toBe(0);
+    expect(state.damageHistory[0].A.spell).toBe(5);
+    // 追加使用的是过滤后第一张（万华之筒）：|0-6|/2=3 法术 + 1 幻觉伤害
+    expect(state.damageHistory[0].B.spell).toBe(4);
+    // 已使用过的银色荆棘未被追加（其 apply 会给 A 挂银色荆棘-威力减半 buff）
+    expect(state.players.A.buffs.some((b) => b.id === "seija-ginjou-half")).toBe(false);
+    expect(state.players.A.usedCardIds).toContain("seija-shinku");
+});
 });
