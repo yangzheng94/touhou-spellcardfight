@@ -43,12 +43,12 @@ function powerBuff(id: string, delta: number) {
 }
 
 describe("已裁决修正的行为规范", () => {
-  it("帕奇左弓：基础威力 20，无 buff 时以 20 参与对抗", async () => {
+  it("帕奇左弓：无「里技启动」Buff 时威力为 0", async () => {
     const zuogong = patches.cards.find((c) => c.id === "patches-zuogong")!;
     const dummy = card("d", "空", 0, {});
     const state = createGameState({ ...patches }, charWith("B", 60, [dummy]), 1);
     await resolveTurn(state, { card: zuogong, skills: [] }, { card: dummy, skills: [] });
-    expect(state.damageHistory[0].B.physical).toBe(20);
+    expect(state.damageHistory[0].B.physical).toBe(0);
   });
 
   it("帕奇左弓：拥有里技启动 Buff 时威力为 40", async () => {
@@ -432,6 +432,66 @@ describe("已裁决修正的行为规范", () => {
     expect(state.damageHistory[3].B.physical).toBe(22 + 16);
     expect(state.damageHistory[3].B.spell).toBe(1);
     expect(state.players.B.hp).toBe(100 - 4 - 39);
+  });
+  it("帕奇「滑步」：回合开始阶段产生的法术伤害（幻觉）也被免疫", async () => {
+    const huabu = patches.cards.find((c) => c.id === "patches-huabu")!;
+    // 圣娅「镜花水月」式：对方符卡在 turnStart 产生 1 点法术伤害
+    const foeCard = card("foe", "对方", 0, { turnStart: (ec) => dealSpell(ec, 1, ec.foe) });
+    const state = createGameState({ ...patches }, charWith("B", 40, [foeCard]), 1);
+    await resolveTurn(state, { card: huabu, skills: [] }, { card: foeCard, skills: [] });
+    expect(state.damageHistory[0].A.spell).toBe(0);
+  });
+
+  it("帕奇「滑步」：幻惑之狐回合结束幻觉也被免疫", async () => {
+    const huabu = patches.cards.find((c) => c.id === "patches-huabu")!;
+    const genwaku = seija.skills.find((s) => s.id === "seija-genwaku")!;
+    const dummy = card("d", "空", 0, {});
+    const state = createGameState({ ...patches }, { ...seija, hp: 40 }, 1);
+    await resolveTurn(state, { card: huabu, skills: [] }, { card: dummy, skills: [genwaku] });
+    expect(state.damageHistory[0].A.spell).toBe(0);
+  });
+
+  it("帕奇「惜别眼泪」：受到致死伤害时保留 1 点 HP，不判负", async () => {
+    const xibie = patches.skills.find((s) => s.id === "patches-xibie")!;
+    const foeCard = card("foe", "对方", 30, {});
+    const state = createGameState({ ...patches }, charWith("B", 40, [foeCard]), 1);
+    await resolveTurn(state, { card: null, skills: [xibie] }, { card: foeCard, skills: [] });
+    expect(state.players.A.hp).toBe(1);
+    expect(state.winner).toBeNull();
+    expect(state.players.A.resources["_xibie_consumed"]).toBe(1);
+  });
+
+  it("帕奇「惜别眼泪」：整局只触发一次，第二次致死伤害正常判负", async () => {
+    const xibie = patches.skills.find((s) => s.id === "patches-xibie")!;
+    const foeCard = card("foe", "对方", 30, {});
+    const state = createGameState({ ...patches }, charWith("B", 40, [foeCard]), 1);
+    await resolveTurn(state, { card: null, skills: [xibie] }, { card: foeCard, skills: [] });
+    expect(state.players.A.hp).toBe(1);
+    expect(state.winner).toBeNull();
+    // 第二次致死伤害：触发次数已耗尽，正常判负
+    await resolveTurn(state, { card: null, skills: [xibie] }, { card: foeCard, skills: [] });
+    expect(state.players.A.hp).toBe(0);
+    expect(state.winner).toBe("B");
+  });
+
+  it("觉「脑指纹测谎法」：互换符卡效果（对方卡带法术伤害效果）", async () => {
+    const shimon = satori.cards.find((c) => c.id === "satori-shimon")!;
+    const foeCard = card("foe", "对方卡", 12, { damage: (ec) => dealSpell(ec, 5) });
+    const state = createGameState(charWith("A", 60, [shimon]), charWith("B", 60, [foeCard]), 1);
+    await resolveTurn(state, { card: shimon, skills: [] }, { card: foeCard, skills: [] });
+    // 互换后 A 用 12、B 用 5 → B 受 7 物理；A 执行对方卡的 damage 效果 → B 受 5 法术
+    expect(state.damageHistory[0].B.physical).toBe(7);
+    expect(state.damageHistory[0].B.spell).toBe(5);
+  });
+
+  it("觉「脑指纹测谎法」：对方卡 turnStart 效果也随互换执行（圣娅镜花水月式）", async () => {
+    const shimon = satori.cards.find((c) => c.id === "satori-shimon")!;
+    const foeCard = card("foe", "对方卡", 12, { turnStart: (ec) => dealSpell(ec, 1, ec.foe) });
+    const state = createGameState(charWith("A", 60, [shimon]), charWith("B", 60, [foeCard]), 1);
+    await resolveTurn(state, { card: shimon, skills: [] }, { card: foeCard, skills: [] });
+    // 互换后 A 执行对方卡 turnStart（对 B 造成 1 法术），B 执行脑指纹（无效果）
+    expect(state.damageHistory[0].B.spell).toBe(1);
+    expect(state.damageHistory[0].A.spell).toBe(0);
   });
 
 });

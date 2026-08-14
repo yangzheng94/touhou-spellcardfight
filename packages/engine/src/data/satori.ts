@@ -160,14 +160,19 @@ export const satori: Character = {
       text: "本回合互换双方打出的符卡",
       tags: ["reverse"],
       script: {
-        turnStart: (ec) => {
-          // 互换双方打出的符卡：同步互换威力基数，使威力计算跟随互换后的符卡。
-          const temp = ec.ctx.cards[ec.self];
-          ec.ctx.cards[ec.self] = ec.ctx.cards[ec.foe];
-          ec.ctx.cards[ec.foe] = temp;
-          const tempBase = ec.ctx.power[ec.self].base;
-          ec.ctx.power[ec.self].base = ec.ctx.power[ec.foe].base;
-          ec.ctx.power[ec.foe].base = tempBase;
+        // 互换双方打出的符卡：在 preTurnStart 阶段互换（先于 turnStart 收集效果源），
+        // 使本回合双方从 turnStart 起即执行对方的符卡脚本；同步互换威力基数，
+        // 使威力计算跟随互换后的符卡。仅互换 ctx.cards 引用，不修改角色全局符卡对象。
+        preTurnStart: (ec) => {
+          const selfCard = ec.ctx.cards[ec.self];
+          const foeCard = ec.ctx.cards[ec.foe];
+          if (selfCard && foeCard) {
+            ec.ctx.cards[ec.self] = foeCard;
+            ec.ctx.cards[ec.foe] = selfCard;
+            const tempBase = ec.ctx.power[ec.self].base;
+            ec.ctx.power[ec.self].base = ec.ctx.power[ec.foe].base;
+            ec.ctx.power[ec.foe].base = tempBase;
+          }
         },
       },
     },

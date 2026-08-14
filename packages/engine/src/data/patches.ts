@@ -126,7 +126,7 @@ export const patches: Character = {
       id: "patches-zuogong",
       name: "【战技替换】左弓",
       power: 20,
-      text: "基础威力 20；拥有“里技启动”Buff（持续 3 回合）时威力为 40",
+      text: "威力20：不与“里技启动”Buff 同时使用时威力为0；拥有该 Buff（持续 3 回合）时威力翻倍为 40",
       tags: [],
       script: {
         power: (ec) => {
@@ -135,6 +135,9 @@ export const patches: Character = {
           );
           if (active) {
             setPower(ec, 40, ec.self);
+          } else {
+            // 不与「里技启动」同时使用 → 威力为 0
+            setPower(ec, 0, ec.self);
           }
         },
       },
@@ -200,6 +203,9 @@ export const patches: Character = {
       script: {
         // 设置 ability_uninterruptable，使本回合符卡效果不会被对方的「效果无效」跳过。
         priority: (ec) => setFlag(ec, ec.self, "ability_uninterruptable", true),
+        // 本回合免疫法术伤害：turnStart 阶段即生效（幻觉可能在回合开始阶段产生），
+        // damage 阶段再次配置，覆盖后续产生的法术伤害。
+        turnStart: (ec) => immune(ec, ec.self, "spell"),
         damage: (ec) => immune(ec, ec.self, "spell"),
         turnEnd: (ec) => setFlag(ec, ec.self, "ability_uninterruptable", false),
       },

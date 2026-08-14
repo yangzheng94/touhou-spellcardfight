@@ -365,6 +365,18 @@ async function resolvePendingWaves(
     const wave = ctx.pending;
     ctx.pending = [];
     const applied = applyDamageWave(ctx, state, wave, log);
+    // 「HP锁定」类效果（如帕奇·惜别眼泪）：扣血后、胜负判定前先结算，
+    // 避免玩家 HP ≤ 0 时提前判负导致 apply 阶段不执行。
+    for (const p of ["A", "B"] as PlayerId[]) {
+      const player = state.players[p];
+      if (player.hp <= 0) {
+        for (const b of player.buffs) {
+          if (b.category === "hp-lock" && b.remainingTriggers !== 0 && b.script.apply) {
+            await b.script.apply({ ctx, self: p, foe: other(p) });
+          }
+        }
+      }
+    }
     checkWin(state);
     if (state.winner) break;
     if (applied.length > 0 && onWave) await onWave(applied);
