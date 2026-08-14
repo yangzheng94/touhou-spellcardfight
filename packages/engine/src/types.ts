@@ -204,6 +204,8 @@ export interface TurnContext {
   pending: PendingDamage[];
   /** 本回合已对某方实际造成的伤害记录（供追加效果判断「若造成伤害」）。 */
   dealt: Record<PlayerId, { physical: number; spell: number }>;
+  /** 本回合按伤害波记录的实际伤害（供「每次成功造成伤害」按波触发类技能）。 */
+  waveDealt: Record<PlayerId, { physical: number; spell: number }[]>;
   /** 本回合某方实际回复的生命总量。 */
   healed: Record<PlayerId, number>;
 

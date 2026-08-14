@@ -88,10 +88,17 @@ export const remilia: Character = {
       passive: false,
       declaredAtTurnStart: true,
       script: {
-        power: (ec) => {
+        power: async (ec) => {
           if (getRes(ec, ec.self, "_eien_used") < 3) {
             addRes(ec, ec.self, "_eien_used", 1);
-            addPower(ec, ec.ctx.rng.d(Math.max(1, ec.ctx.turn)));
+            const v = await requestDecision(
+              ec,
+              ec.self,
+              '永远鲜红的幼月：本回合符卡威力提升 1~回合数 点',
+              [],
+              { min: 1, max: Math.max(1, ec.ctx.turn) },
+            );
+            addPower(ec, v);
           }
         },
       },

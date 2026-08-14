@@ -7,7 +7,7 @@ import {
   type DecisionResolver,
 } from "../src/index.js";
 import type { EffectScript } from "../src/types.js";
-import { dealSpell, addPower } from "../src/effects.js";
+import { dealSpell, dealPhysical, addPower } from "../src/effects.js";
 import { patches } from "../src/data/patches.js";
 import { satori } from "../src/data/satori.js";
 import { reimu } from "../src/data/reimu.js";
@@ -15,6 +15,10 @@ import { koishi } from "../src/data/koishi.js";
 import { sagume } from "../src/data/sagume.js";
 import { patchouli } from "../src/data/patchouli.js";
 import { seija } from "../src/data/seija.js";
+import { youmu } from "../src/data/youmu.js";
+import { flandre } from "../src/data/flandre.js";
+import { yuuka } from "../src/data/yuuka.js";
+import { remilia } from "../src/data/remilia.js";
 
 function card(id: string, name: string, power: number, script: EffectScript, tags: Card["tags"] = []): Card {
   return { id, name, power, text: name, tags, script };
@@ -230,4 +234,143 @@ describe("已裁决修正的行为规范", () => {
     expect(state.players.A.buffs.some((b) => b.id === "seija-ginjou-half")).toBe(false);
     expect(state.players.A.usedCardIds).toContain("seija-shinku");
 });
+
+  it("幽香「幽梦」：全局偶数回合触发流失，奇数回合不触发", async () => {
+    const yuumu = yuuka.skills.find((s) => s.id === "yuuka-yuumu")!;
+    const state = createGameState({ ...yuuka }, charWith("B", 40, []), 1);
+    await resolveTurn(state, { card: null, skills: [yuumu] }, { card: null, skills: [] });
+    expect(state.players.B.hp).toBe(40); // T1 odd: no drain
+    await resolveTurn(state, { card: null, skills: [yuumu] }, { card: null, skills: [] });
+    expect(state.players.B.hp).toBe(39); // T2 even: drain 1
+    await resolveTurn(state, { card: null, skills: [yuumu] }, { card: null, skills: [] });
+    expect(state.players.B.hp).toBe(39); // T3 odd: no drain
+    await resolveTurn(state, { card: null, skills: [yuumu] }, { card: null, skills: [] });
+    expect(state.players.B.hp).toBe(38); // T4 even: drain 1
+  });
+
+
+  it("芙兰「红莓陷阱」：开局掷一次1D5，仅触发一次", async () => {
+    const trap = flandre.skills.find((s) => s.id === "flan-trap")!;
+    const state = createGameState({ ...flandre }, charWith("B", 40, []), 1);
+    const hps = [40];
+    for (let t = 1; t <= 5; t++) {
+      await resolveTurn(state, { card: null, skills: [trap] }, { card: null, skills: [] });
+      hps.push(state.players.B.hp);
+    }
+    const trapTurn = state.players.A.resources["_trap_turn"];
+    expect(trapTurn).toBeGreaterThanOrEqual(1);
+    expect(trapTurn).toBeLessThanOrEqual(5);
+    // B hp only changes from the trap drain (1D5): exactly one drop
+    let drops = 0;
+    for (let i = 1; i < hps.length; i++) {
+      expect(hps[i]).toBeLessThanOrEqual(hps[i - 1]);
+      if (hps[i] < hps[i - 1]) drops += 1;
+    }
+    expect(drops).toBe(1);
+    expect(40 - hps[hps.length - 1]).toBeLessThanOrEqual(5);
+  });
+
+
+  it("妖梦「半人半灵」：每波成功造成物理伤害各追加1法术", async () => {
+    const hanjin = youmu.skills.find((s) => s.id === "youmu-hanjin")!;
+    const atk = card("atk", "攻击", 5, { turnStart: (ec) => dealPhysical(ec, 2) });
+    const foe = card("foe", "对方", 0, {});
+    const state = createGameState({ ...youmu }, charWith("B", 40, [foe]), 1);
+    await resolveTurn(state, { card: atk, skills: [hanjin] }, { card: foe, skills: [] });
+    // wave1: turnStart physical 2; wave2: clash physical 5 -> 2 triggers
+    expect(state.damageHistory[0].B.physical).toBe(7);
+    expect(state.damageHistory[0].B.spell).toBe(2);
+  });
+
+
+  it("妖梦「半人半灵」：单波物理伤害只追加1法术", async () => {
+    const hanjin = youmu.skills.find((s) => s.id === "youmu-hanjin")!;
+    const atk = card("atk", "攻击", 5, {});
+    const foe = card("foe", "对方", 0, {});
+    const state = createGameState({ ...youmu }, charWith("B", 40, [foe]), 1);
+    await resolveTurn(state, { card: atk, skills: [hanjin] }, { card: foe, skills: [] });
+    // single wave -> 1 trigger
+    expect(state.damageHistory[0].B.physical).toBe(5);
+    expect(state.damageHistory[0].B.spell).toBe(1);
+  });
+
+
+  it("芙兰「恐怖的波动」：每波成功造成伤害各流失1D3", async () => {
+    const kyoufu = flandre.skills.find((s) => s.id === "flan-kyoufu")!;
+    const atk = card("atk", "攻击", 5, { turnStart: (ec) => dealSpell(ec, 2) });
+    const foe = card("foe", "对方", 0, {});
+    const state = createGameState({ ...flandre }, charWith("B", 40, [foe]), 1);
+    await resolveTurn(state, { card: atk, skills: [kyoufu] }, { card: foe, skills: [] });
+    // wave1: turnStart spell 2; wave2: clash physical 5 -> 2 drains of 1D3
+    expect(state.damageHistory[0].B.physical).toBe(5);
+    expect(state.damageHistory[0].B.spell).toBe(2);
+    const drainTotal = 40 - state.players.B.hp - 7;
+    expect(drainTotal).toBeGreaterThanOrEqual(2);
+    expect(drainTotal).toBeLessThanOrEqual(6);
+  });
+
+
+  it("芙兰「恐怖的波动」：单波伤害只流失一次1D3", async () => {
+    const kyoufu = flandre.skills.find((s) => s.id === "flan-kyoufu")!;
+    const atk = card("atk", "攻击", 5, {});
+    const foe = card("foe", "对方", 0, {});
+    const state = createGameState({ ...flandre }, charWith("B", 40, [foe]), 1);
+    await resolveTurn(state, { card: atk, skills: [kyoufu] }, { card: foe, skills: [] });
+    // single wave -> 1 drain of 1D3
+    expect(state.damageHistory[0].B.physical).toBe(5);
+    const drainTotal = 40 - state.players.B.hp - 5;
+    expect(drainTotal).toBeGreaterThanOrEqual(1);
+    expect(drainTotal).toBeLessThanOrEqual(3);
+  });
+
+
+  it("幽香「四季鲜花之主」：跨回合累计，免疫/护盾吸收的伤害不计，触发当回合受伤计入下一轮", async () => {
+    const shiki = yuuka.skills.find((s) => s.id === "yuuka-shiki")!;
+    const foeSpell = card("foe", "对方", 0, { damage: (ec) => dealSpell(ec, 5) });
+    const state = createGameState({ ...yuuka }, charWith("B", 40, [foeSpell]), 1);
+    await resolveTurn(state, { card: null, skills: [shiki] }, { card: foeSpell, skills: [] });
+    expect(state.players.A.resources["_shiki_hit_count"]).toBe(1);
+    await resolveTurn(state, { card: null, skills: [shiki] }, { card: foeSpell, skills: [] });
+    expect(state.players.A.resources["_shiki_hit_count"]).toBe(2);
+    const foePhys = card("foe2", "对方2", 3, {});
+    await resolveTurn(state, { card: null, skills: [shiki] }, { card: foePhys, skills: [] });
+    // T3: activated at turnStart -> B effect negated; taking 3 physical carries count to next round
+    expect(state.damageHistory[2].A.spell).toBe(0);
+    expect(state.damageHistory[2].A.physical).toBe(3);
+    expect(state.players.A.resources["_shiki_hit_count"]).toBe(1);
+  });
+
+
+  it("幽香「四季鲜花之主」：被免疫的伤害不计数", async () => {
+    const shiki = yuuka.skills.find((s) => s.id === "yuuka-shiki")!;
+    const defend = yuuka.cards.find((c) => c.id === "yuuka-daiousana")!;
+    const foePhys = card("foe", "对方", 5, {});
+    const state = createGameState({ ...yuuka }, charWith("B", 40, [foePhys]), 1);
+    await resolveTurn(state, { card: defend, skills: [shiki] }, { card: foePhys, skills: [] });
+    // immune damage is not counted
+    expect(state.damageHistory[0].A.physical).toBe(0);
+    expect(state.players.A.resources["_shiki_hit_count"] ?? 0).toBe(0);
+  });
+
+
+  it("蕾米「永远鲜红的幼月」：威力提升由玩家在1~回合数中选择", async () => {
+    const eien = remilia.skills.find((s) => s.id === "remilia-eienkougetsu")!;
+    const atk = card("atk", "攻击", 4, {});
+    const foe = card("foe", "对方", 0, {});
+    const log: { prompt: string; decision: number }[] = [];
+    const decide: DecisionResolver = (req) => {
+      if (req.range) log.push({ prompt: req.prompt, decision: req.range.max });
+      return req.range ? req.range.max : 0;
+    };
+    const state = createGameState({ ...remilia }, charWith("B", 40, [foe]), 1);
+    await resolveTurn(state, { card: atk, skills: [eien] }, { card: foe, skills: [] }, decide);
+    await resolveTurn(state, { card: atk, skills: [eien] }, { card: foe, skills: [] }, decide);
+    await resolveTurn(state, { card: atk, skills: [eien] }, { card: foe, skills: [] }, decide);
+    // player picks 1/2/3 on turns 1/2/3
+    expect(log.map((d) => d.decision)).toEqual([1, 2, 3]);
+    expect(state.damageHistory[0].B.physical).toBe(5);
+    expect(state.damageHistory[1].B.physical).toBe(6);
+    expect(state.damageHistory[2].B.physical).toBe(7);
+  });
+
 });

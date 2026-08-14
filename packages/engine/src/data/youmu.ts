@@ -11,7 +11,7 @@ import {
   cardPowerOf,
   multTakenDamage,
 } from "../effects.js";
-import { addBuff, getRes, setRes } from "../buffs.js";
+import { addBuff } from "../buffs.js";
 
 /**
  * 魂魄妖梦  HP29
@@ -34,14 +34,12 @@ export const youmu: Character = {
       passive: true,
       declaredAtTurnStart: false,
       script: {
-        // 造成物理伤害后追加 1 法术。用 apply 阶段检测 dealt。
+        // 每次成功造成物理伤害时追加 1 法术：按伤害波逐波触发。
         apply: (ec) => {
-          if (ec.ctx.dealt[ec.foe].physical > 0 && !getRes(ec, ec.self, "_hanjin_done")) {
-            setRes(ec, ec.self, "_hanjin_done", 1);
-            dealSpell(ec, 1);
+          for (const w of ec.ctx.waveDealt[ec.foe]) {
+            if (w.physical > 0) dealSpell(ec, 1);
           }
         },
-        turnStart: (ec) => setRes(ec, ec.self, "_hanjin_done", 0),
       },
     },
     {

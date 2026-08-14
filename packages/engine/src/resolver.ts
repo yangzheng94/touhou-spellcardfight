@@ -88,6 +88,7 @@ export async function resolveTurn(
     hpLocked: { A: false, B: false },
     pending: [],
     dealt: { A: { physical: 0, spell: 0 }, B: { physical: 0, spell: 0 } },
+    waveDealt: { A: [], B: [] },
     healed: { A: 0, B: 0 },
     clashDamage: null,
     repeatClash: false,
@@ -455,6 +456,7 @@ function applyDamageWave(
       p.hp = Math.max(0, p.hp - total);
       ctx.dealt[t].physical += dmg.physical;
       ctx.dealt[t].spell += dmg.spell;
+      ctx.waveDealt[t].push({ physical: dmg.physical, spell: dmg.spell });
       if (dmg.spell > 0) state.stats.maxSpellDamage = Math.max(state.stats.maxSpellDamage, dmg.spell);
       
       let msg = `${charName(t)}（${t}）HP ${before} → ${p.hp}`;

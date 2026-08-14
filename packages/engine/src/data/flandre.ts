@@ -13,7 +13,7 @@ import {
   cardPowerOf,
 } from "../effects.js";
 import { healedTurnsAgo } from "../state.js";
-import { addBuff, getFlag, setFlag, getRes, setRes } from "../buffs.js";
+import { addBuff, getRes, setRes } from "../buffs.js";
 
 /**
  * 芙兰朵露·斯卡雷特  HP29
@@ -31,12 +31,10 @@ export const flandre: Character = {
       passive: true,
       declaredAtTurnStart: false,
       script: {
-        turnStart: (ec) => setFlag(ec, ec.self, "_kyoufu_done", false),
+        // 每次成功造成伤害时使对方流失1D3：按伤害波逐波触发。
         apply: (ec) => {
-          const d = ec.ctx.dealt[ec.foe];
-          if (d.physical + d.spell > 0 && !getFlag(ec, ec.self, "_kyoufu_done")) {
-            setFlag(ec, ec.self, "_kyoufu_done", true);
-            drainLife(ec, ec.ctx.rng.d(3), ec.foe);
+          for (const w of ec.ctx.waveDealt[ec.foe]) {
+            if (w.physical + w.spell > 0) drainLife(ec, ec.ctx.rng.d(3), ec.foe);
           }
         },
       },
