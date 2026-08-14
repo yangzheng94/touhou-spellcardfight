@@ -125,8 +125,8 @@ export const patches: Character = {
     {
       id: "patches-zuogong",
       name: "【战技替换】左弓",
-      power: 0,
-      text: "威力0；如果拥有“里技启动”Buff（持续 3 回合），则威力为 40；否则威力为 0",
+      power: 20,
+      text: "基础威力 20；拥有“里技启动”Buff（持续 3 回合）时威力为 40",
       tags: [],
       script: {
         power: (ec) => {
@@ -135,8 +135,6 @@ export const patches: Character = {
           );
           if (active) {
             setPower(ec, 40, ec.self);
-          } else {
-            setPower(ec, 0, ec.self);
           }
         },
       },

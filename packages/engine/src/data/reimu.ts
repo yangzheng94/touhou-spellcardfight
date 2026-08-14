@@ -1,5 +1,6 @@
 import type { Character } from "../types.js";
 import { dealSpell, dealPhysical, heal, drainLife, immune, negateEffect } from "../effects.js";
+import { resolvePower } from "../power.js";
 import { addBuff, getRes, setRes } from "../buffs.js";
 
 /**
@@ -19,8 +20,9 @@ export const reimu: Character = {
       declaredAtTurnStart: false,
       script: {
         power: (ec) => {
-          const mine = ec.ctx.cards[ec.self]?.power ?? 0;
-          const theirs = ec.ctx.cards[ec.foe]?.power ?? 0;
+          // 按修正后的最终威力补足：若己方最终威力低于对方，则补足至与对方同等。
+          const mine = resolvePower(ec.ctx.power[ec.self]);
+          const theirs = resolvePower(ec.ctx.power[ec.foe]);
           if (mine < theirs) ec.ctx.power[ec.self].adds.push(theirs - mine);
         },
       },

@@ -476,7 +476,7 @@ describe("战斗模拟：各角色关键技能/符卡验证", () => {
       expect(state.players.B.hp).toBeGreaterThanOrEqual(0);
     });
 
-    it("圣德太子的天马：双方无视威力", async () => {
+    it("圣德太子的天马：双方按各自最终威力直接互砍", async () => {
       const skill = findSkill(sagume, "sagume-taishi"); // 天马
       const firstCard = sagume.cards.find(c => c.id === "sagume-shageki")!;
       const dc = findCard(youmu, "youmu-genseizan");
@@ -484,7 +484,7 @@ describe("战斗模拟：各角色关键技能/符卡验证", () => {
 
       await resolveTurn(state, { card: firstCard, skills: [skill] }, { card: dc, skills: [] });
 
-      // 使用天马技能：双方威力互相无视
+      // 使用天马技能：跳过威力对抗，双方按各自最终威力直接互砍
       expect(state.players.B.hp).toBeGreaterThanOrEqual(0);
     });
   });

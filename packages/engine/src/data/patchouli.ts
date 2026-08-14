@@ -1,4 +1,4 @@
-import type { Character } from "../types.js";
+import type { Character, EffectContext } from "../types.js";
 import {
   addPower,
   dealSpell,
@@ -9,7 +9,21 @@ import {
   dealPhysical,
   cardPowerOf,
   hpOf,
+  setPower,
 } from "../effects.js";
+import { resolvePower } from "../power.js";
+import { getRes } from "../buffs.js";
+
+/** 贤者之石门槛：本次对战中已打出金木水火土符各一张（由元素符卡 turnStart 记录）。 */
+function kenjaUnlocked(ec: EffectContext): boolean {
+  return (
+    getRes(ec, ec.self, "elem_metal") === 1 &&
+    getRes(ec, ec.self, "elem_fire") === 1 &&
+    getRes(ec, ec.self, "elem_wood") === 1 &&
+    getRes(ec, ec.self, "elem_earth") === 1 &&
+    getRes(ec, ec.self, "elem_water") === 1
+  );
+}
 
 /**
  * 帕秋莉·诺蕾姬  HP22
@@ -50,11 +64,12 @@ export const patchouli: Character = {
     {
       id: "patchouli-shichiyou",
       name: "七曜魔法",
-      text: "打出单元素魔法时可与上回合的符卡元素融合，各取其一半的效果并采用本回合符卡的威力；若本次对战中已打出金木水火土符各一张，则可使用金木水火土符【贤者之石】",
+      text: "七耀魔法（占位实现）：元素融合暂未实装，当前仅记录已打出的元素；若本次对战中已打出金木水火土符各一张，则解锁金木水火土符【贤者之石】",
       cooldown: 1,
       passive: true,
       declaredAtTurnStart: false,
-      // 元素融合逻辑复杂，manual 近似：仅记录元素，不自动融合。
+      // 元素融合逻辑复杂，保留占位实现（manual）：仅记录元素，不自动融合。
+      // 已实装部分：集齐金木水火土各一张后解锁【贤者之石】（patchouli-kenja 检查元素资源）。
       script: {},
     },
   ],
@@ -197,6 +212,66 @@ export const patchouli: Character = {
           ec.ctx.state.players[ec.self].resources["elem_water"] = 1;
         },
         damage: (ec) => dealSpell(ec, ec.ctx.state.players[ec.self].maxHp - hpOf(ec, ec.self)),
+      },
+    },
+    {
+      id: "patchouli-hi",
+      name: "日符【皇家烈焰】",
+      power: 9,
+      text: "若威力大于对方，则提升4点威力；若威力小于对方，则提升8点威力",
+      tags: [],
+      script: {
+        power: (ec) => {
+          // 按双方修正后的最终威力比较（此时已叠加完 buff/技能威力）。
+          const selfP = resolvePower(ec.ctx.power[ec.self]);
+          const foeP = resolvePower(ec.ctx.power[ec.foe]);
+          if (selfP > foeP) addPower(ec, 4);
+          else if (selfP < foeP) addPower(ec, 8);
+        },
+      },
+    },
+    {
+      id: "patchouli-tsuki",
+      name: "月符【沉静的月神】",
+      power: 3,
+      text: "产生10点法术伤害，并恢复本回合打出法术伤害等量的HP",
+      tags: ["spell-damage", "heal"],
+      script: {
+        damage: (ec) => dealSpell(ec, 10),
+        apply: (ec) => {
+          // 按结算时实际打出的法术伤害回复（被免疫/吸收的部分不计）。
+          const s = ec.ctx.dealt[ec.foe].spell;
+          if (s > 0) heal(ec, s);
+        },
+      },
+    },
+    {
+      id: "patchouli-kenja",
+      name: "金木水火土符【贤者之石】",
+      power: 5,
+      text: "需本次对战中已打出金木水火土符各一张：提升己方5点威力、降低对方5点威力，造成5点法术伤害，回复5HP，抵挡5伤害",
+      tags: ["spell-damage", "heal", "absorb", "manual"],
+      script: {
+        // 门槛：本局已打出金木水火土符各一张；未满足时各阶段检查并跳过（不臆造效果）。
+        power: (ec) => {
+          if (!kenjaUnlocked(ec)) {
+            // 未满足条件时本卡不可使用：威力归零，不产生任何伤害、效果。
+            setPower(ec, 0);
+            ec.ctx.log({ type: "info", msg: "贤者之石：尚未集齐金木水火土符各一张，本卡不可使用，不产生任何效果" });
+            return;
+          }
+          addPower(ec, 5);
+          addPower(ec, -5, ec.foe);
+        },
+        damage: (ec) => {
+          if (!kenjaUnlocked(ec)) {
+            ec.ctx.log({ type: "info", msg: "贤者之石：尚未集齐金木水火土符各一张，伤害/回复/护盾效果不生效" });
+            return;
+          }
+          dealSpell(ec, 5);
+          heal(ec, 5);
+          addAbsorb(ec, ec.self, 5);
+        },
       },
     },
   ],

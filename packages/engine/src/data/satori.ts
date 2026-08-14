@@ -106,13 +106,15 @@ export const satori: Character = {
       id: "satori-oboro",
       name: "想起【朦胧的表意识】",
       power: 6,
-      text: "本回合复制对方的能力",
+      text: "本回合复制对方符卡效果（只复制效果，不复制威力）",
       tags: ["reverse"],
       script: {
         turnStart: (ec) => {
+          // 只复制对方符卡的效果（script），保留本符卡的基础威力 6（“只执行能力效果部分”）。
           const oppCard = ec.ctx.cards[ec.foe];
-          if (oppCard) {
-            ec.ctx.cards[ec.self] = { ...oppCard };
+          const selfCard = ec.ctx.cards[ec.self];
+          if (oppCard?.script && selfCard) {
+            ec.ctx.cards[ec.self] = { ...oppCard, power: selfCard.power };
           }
         },
       },
@@ -159,9 +161,13 @@ export const satori: Character = {
       tags: ["reverse"],
       script: {
         turnStart: (ec) => {
+          // 互换双方打出的符卡：同步互换威力基数，使威力计算跟随互换后的符卡。
           const temp = ec.ctx.cards[ec.self];
           ec.ctx.cards[ec.self] = ec.ctx.cards[ec.foe];
           ec.ctx.cards[ec.foe] = temp;
+          const tempBase = ec.ctx.power[ec.self].base;
+          ec.ctx.power[ec.self].base = ec.ctx.power[ec.foe].base;
+          ec.ctx.power[ec.foe].base = tempBase;
         },
       },
     },

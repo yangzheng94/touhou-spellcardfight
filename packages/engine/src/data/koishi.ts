@@ -9,6 +9,7 @@ import {
   requestDecision,
 } from "../effects.js";
 import { addBuff } from "../buffs.js";
+import { resolvePower } from "../power.js";
 
 /**
  * 古明地恋  HP27
@@ -63,13 +64,37 @@ export const koishi: Character = {
     {
       id: "koishi-hartmann",
       name: "哈德曼的妖怪少女",
-      text: "每三回合一次，本回合对方无法使用符卡效果（威力对抗照常进行）",
+      text: "每三回合一次，本回合让对方打出一张由自己选择的符卡",
       cooldown: 3,
       passive: false,
       declaredAtTurnStart: true,
       script: {
-        turnStart: (ec) => {
-          ec.ctx.castNegated[ec.foe] = true;
+        // manual 近似：引擎没有「替对方选卡」的出牌协议，改为出牌揭示后由己方
+        // 从对方未使用过的符卡中选择一张，替换对方本回合打出的符卡。
+        turnStart: async (ec) => {
+          const foe = ec.ctx.state.players[ec.foe];
+          const unused = foe.character.cards.filter((c) => !foe.usedCardIds.includes(c.id));
+          if (unused.length === 0) {
+            ec.ctx.log({ type: "info", msg: "哈德曼的妖怪少女：对方已无可用符卡，效果无效" });
+            return;
+          }
+          const idx = await requestDecision(
+            ec,
+            ec.self,
+            "哈德曼的妖怪少女：选择让对方本回合打出的符卡",
+            unused.map((c) => c.name),
+          );
+          const chosen = unused[idx];
+          if (!chosen) return;
+          const oldCard = ec.ctx.cards[ec.foe];
+          if (oldCard) {
+            const i = foe.usedCardIds.indexOf(oldCard.id);
+            if (i >= 0) foe.usedCardIds.splice(i, 1);
+          }
+          ec.ctx.cards[ec.foe] = chosen;
+          ec.ctx.power[ec.foe].base = chosen.power;
+          foe.usedCardIds.push(chosen.id);
+          ec.ctx.log({ type: "info", msg: `哈德曼的妖怪少女：强制对方打出「${chosen.name}」` });
         },
       },
     },
@@ -184,8 +209,9 @@ export const koishi: Character = {
       tags: ["reverse"],
       script: {
         power: (ec) => {
-          const a = cardPowerOf(ec, "A");
-          const b = cardPowerOf(ec, "B");
+          // 按双方修正后的最终威力互换（set 覆盖最终值）。
+          const a = resolvePower(ec.ctx.power.A);
+          const b = resolvePower(ec.ctx.power.B);
           ec.ctx.power.A.set = b;
           ec.ctx.power.B.set = a;
         },

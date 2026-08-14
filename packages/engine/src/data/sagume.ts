@@ -2,16 +2,17 @@ import type { Character } from "../types.js";
 import {
   multPower,
   dealSpell,
+  dealPhysical,
   heal,
   drainLife,
   addAbsorb,
   addTakenDamage,
-  cardPowerOf,
   hpOf,
   negateEffect,
   requestDecision,
 } from "../effects.js";
 import { addBuff } from "../buffs.js";
+import { resolvePower } from "../power.js";
 import { damageTakenTurnsAgo } from "../state.js";
 
 /**
@@ -40,15 +41,31 @@ export const sagume: Character = {
     {
       id: "sagume-taishi",
       name: "圣德太子的天马",
-      text: "每2回合一次，本回合双方无视对方符卡威力造成伤害",
+      text: "每2回合一次，本回合双方威力跳过对抗结算，按各自最终威力直接扣除对方血量",
       cooldown: 2,
       passive: false,
       declaredAtTurnStart: true,
       script: {
-        power: (ec) => {
-          // 双方互相无视对方的威力（威力视为0，仅对抗用）
-          ec.ctx.powerIgnored.A = true;
-          ec.ctx.powerIgnored.B = true;
+        // 仿「奶断与鬼切」：跳过威力对抗，双方按各自修正后的最终威力直接互砍。
+        clash: (ec) => {
+          // 先移除威力对抗已入队的物理伤害
+          const cd = ec.ctx.clashDamage;
+          if (cd) {
+            ec.ctx.pending = ec.ctx.pending.filter(
+              (p) =>
+                !(
+                  p.type === "physical" &&
+                  p.source === cd.source &&
+                  p.target === cd.target &&
+                  p.amount === cd.amount
+                ),
+            );
+            ec.ctx.clashDamage = null;
+          }
+          const selfPower = resolvePower(ec.ctx.power[ec.self]);
+          const foePower = resolvePower(ec.ctx.power[ec.foe]);
+          if (selfPower > 0) dealPhysical(ec, selfPower, ec.foe, ec.self);
+          if (foePower > 0) dealPhysical(ec, foePower, ec.self, ec.foe);
         },
       },
     },
@@ -202,7 +219,7 @@ export const sagume: Character = {
       text: "造成（本回合对方符卡威力+回合数）X2的法术伤害",
       tags: ["spell-damage"],
       script: {
-        damage: (ec) => dealSpell(ec, (cardPowerOf(ec, ec.foe) + ec.ctx.turn) * 2),
+        damage: (ec) => dealSpell(ec, (resolvePower(ec.ctx.power[ec.foe]) + ec.ctx.turn) * 2),
       },
     },
   ],
