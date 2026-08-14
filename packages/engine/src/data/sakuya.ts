@@ -296,11 +296,11 @@ export const sakuya: Character = {
                           const buff = ee.ctx.state.players[ee.self].buffs.find(b => b.id === "sakuya-world-final");
                           if (buff?.data) {
                             const d = buff.data;
-                            // 走正常伤害通道：吃结算当回合的免疫/护盾/减伤，也可被花开夜延后
-                            if (d.dpA > 0) dealPhysical(ee, d.dpA, ee.foe, ee.self);
-                            if (d.dsA > 0) dealSpell(ee, d.dsA, ee.foe, ee.self);
-                            if (d.dpB > 0) dealPhysical(ee, d.dpB, ee.self, ee.foe);
-                            if (d.dsB > 0) dealSpell(ee, d.dsB, ee.self, ee.foe);
+                            // 走正常伤害通道：吃结算当回合的免疫/护盾/减伤，也可被花开夜延后；但不吃当回合增伤
+                            if (d.dpA > 0) dealPhysical(ee, d.dpA, ee.foe, ee.self, { noBoost: true });
+                            if (d.dsA > 0) dealSpell(ee, d.dsA, ee.foe, ee.self, { noBoost: true });
+                            if (d.dpB > 0) dealPhysical(ee, d.dpB, ee.self, ee.foe, { noBoost: true });
+                            if (d.dsB > 0) dealSpell(ee, d.dsB, ee.self, ee.foe, { noBoost: true });
                             ee.ctx.log({ type: "info", msg: `THE WORLD：结算延迟伤害(${ee.self}→${ee.foe}物理${d.dpA}+法术${d.dsA}, ${ee.foe}→${ee.self}物理${d.dpB}+法术${d.dsB})` });
                           }
                         },

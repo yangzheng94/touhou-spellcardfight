@@ -89,9 +89,10 @@ export function dealSpell(
   amount: number,
   target: PlayerId = ec.foe,
   source: PlayerId = ec.self,
+  opts?: { noBoost?: boolean },
 ): void {
   if (amount <= 0) return;
-  ec.ctx.pending.push({ type: "spell", amount, source, target });
+  ec.ctx.pending.push({ type: "spell", amount, source, target, noBoost: opts?.noBoost });
 }
 
 /** 产生一次物理伤害。 */
@@ -100,9 +101,10 @@ export function dealPhysical(
   amount: number,
   target: PlayerId = ec.foe,
   source: PlayerId = ec.self,
+  opts?: { noBoost?: boolean },
 ): void {
   if (amount <= 0) return;
-  ec.ctx.pending.push({ type: "physical", amount, source, target });
+  ec.ctx.pending.push({ type: "physical", amount, source, target, noBoost: opts?.noBoost });
 }
 
 /** 生命流失（绕过免疫/反弹，可被固定HP挡）。 */

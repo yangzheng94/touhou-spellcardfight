@@ -19,6 +19,7 @@ import { youmu } from "../src/data/youmu.js";
 import { flandre } from "../src/data/flandre.js";
 import { yuuka } from "../src/data/yuuka.js";
 import { remilia } from "../src/data/remilia.js";
+import { sakuya } from "../src/data/sakuya.js";
 
 function card(id: string, name: string, power: number, script: EffectScript, tags: Card["tags"] = []): Card {
   return { id, name, power, text: name, tags, script };
@@ -382,6 +383,30 @@ describe("已裁决修正的行为规范", () => {
     expect(state.damageHistory[0].B.physical).toBe(5);
     expect(state.damageHistory[1].B.physical).toBe(6);
     expect(state.damageHistory[2].B.physical).toBe(7);
+  });
+
+
+  it("THE WORLD：结算回合的延迟伤害不吃当回合增伤（仍吃免疫/护盾/减伤）", async () => {
+    const world = sakuya.cards.find((c) => c.id === "sakuya-world")!;
+    const rikudou = youmu.cards.find((c) => c.id === "youmu-rikudou")!;
+    const mirai = youmu.cards.find((c) => c.id === "youmu-miraieigo")!;
+    const dummy = card("d", "空", 0, {});
+    const hanjin = youmu.skills.find((s) => s.id === "youmu-hanjin")!;
+    const monji = youmu.skills.find((s) => s.id === "youmu-monji")!;
+    // B（咲夜）HP 调高避免中途死亡
+    const state = createGameState({ ...youmu }, { ...sakuya, hp: 100 }, 1);
+    // T1: 妖梦六道剑(3)
+    await resolveTurn(state, { card: rikudou, skills: [hanjin] }, { card: dummy, skills: [] });
+    // T2: 咲夜打出 THE WORLD（T3 生效减半/加倍并延迟，T4 结算）
+    await resolveTurn(state, { card: dummy, skills: [hanjin] }, { card: world, skills: [] });
+    // T3: 妖梦未来永劫斩(11)+求闻持：11*1.5*2*0.5=16 物理 + 1 法术，被 THE WORLD 撤销并延迟
+    await resolveTurn(state, { card: mirai, skills: [hanjin, monji] }, { card: dummy, skills: [] });
+    expect(state.players.B.hp).toBe(100 - 4); // 延迟撤销后 HP 恢复
+    // T4: 未来永劫斩 增伤仍生效，但延迟伤害不吃它：22 新物理 + 16 延迟物理；延迟 1 法术不被 ×2
+    await resolveTurn(state, { card: mirai, skills: [] }, { card: dummy, skills: [] });
+    expect(state.damageHistory[3].B.physical).toBe(22 + 16);
+    expect(state.damageHistory[3].B.spell).toBe(1);
+    expect(state.players.B.hp).toBe(100 - 4 - 39);
   });
 
 });

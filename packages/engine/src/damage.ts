@@ -38,12 +38,13 @@ export interface DamageResult {
  *
  * @param raw 伤害基础值（已由效果层决定，如威力差 / 法术固定值）
  */
-export function applyDamageMods(raw: number, mods: DamageMods): DamageResult {
+export function applyDamageMods(raw: number, mods: DamageMods, opts?: { noBoost?: boolean }): DamageResult {
   // 1. 计算顺序 +X → *M → =X
   let v = raw;
-  for (const a of mods.adds) v += a;
-  for (const m of mods.mults) v *= m;
-  if (mods.set !== null) v = mods.set;
+  // 不吃增伤：跳过正加成、>1 的乘数与赋值（保留减伤）。
+  for (const a of opts?.noBoost ? mods.adds.filter((x) => x <= 0) : mods.adds) v += a;
+  for (const m of opts?.noBoost ? mods.mults.filter((x) => x <= 1) : mods.mults) v *= m;
+  if (!opts?.noBoost && mods.set !== null) v = mods.set;
   v = Math.floor(v);
   if (v < 0) v = 0;
 
@@ -57,7 +58,7 @@ export function applyDamageMods(raw: number, mods: DamageMods): DamageResult {
   }
 
   // 至少 / 至多（在免疫之后、反弹之前）
-  if (mods.atLeast !== null && v < mods.atLeast) v = mods.atLeast;
+  if (!opts?.noBoost && mods.atLeast !== null && v < mods.atLeast) v = mods.atLeast;
   if (mods.atMost !== null && v > mods.atMost) v = mods.atMost;
 
   // 反弹（无免疫时）：目标不受伤，改由来源承担

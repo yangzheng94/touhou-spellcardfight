@@ -35,10 +35,9 @@ export const youmu: Character = {
       declaredAtTurnStart: false,
       script: {
         // 每次成功造成物理伤害时追加 1 法术：按伤害波逐波触发。
-        apply: (ec) => {
-          for (const w of ec.ctx.waveDealt[ec.foe]) {
-            if (w.physical > 0) dealSpell(ec, 1);
-          }
+        applyWave: (ec) => {
+          const w = ec.ctx.currentWave;
+          if (w && w.target === ec.foe && w.physical > 0) dealSpell(ec, 1);
         },
       },
     },
@@ -81,7 +80,7 @@ export const youmu: Character = {
               id: "genseizan-debuff",
               name: "现世斩-威力降低",
               owner: ec.self,
-              turns: 2, // 覆盖「下回合」（创建回合不计）
+              turns: 1, // 覆盖「下回合」（创建回合不计）
               triggers: 1,
               text: "下回合对方符卡威力降低 4 点",
               category: "power",
@@ -161,7 +160,7 @@ export const youmu: Character = {
             id: "rikudou-double",
             name: "一念无量劫-威力翻倍",
             owner: ec.self,
-            turns: 2,
+            turns: 1,
             triggers: 1,
             text: "下回合自己符卡威力翻倍",
             category: "power",

@@ -177,6 +177,8 @@ export interface PendingDamage {
   isDrain?: boolean;
   /** 直接回复（正值）。 */
   isHeal?: boolean;
+  /** 不吃当回合增伤，仍吃免疫/护盾/减伤（用于THE WORLD延迟结算伤害）。 */
+  noBoost?: boolean;
 }
 
 /** 回合结算过程中的可变上下文 */
@@ -206,6 +208,8 @@ export interface TurnContext {
   dealt: Record<PlayerId, { physical: number; spell: number }>;
   /** 本回合按伤害波记录的实际伤害（供「每次成功造成伤害」按波触发类技能）。 */
   waveDealt: Record<PlayerId, { physical: number; spell: number }[]>;
+  /** 最近一次结算完成的伤害波（实际造成伤害，供 applyWave 读取）。 */
+  currentWave: { target: PlayerId; physical: number; spell: number } | null;
   /** 本回合某方实际回复的生命总量。 */
   healed: Record<PlayerId, number>;
 
@@ -247,7 +251,10 @@ export interface EffectContext {
  * 通过组合原子效果（effects.ts）或直接写 handler 表达符卡/技能/ buff。
  * 支持同步或异步返回（用于需要等待玩家决策的场景）。
  */
-export type EffectScript = Partial<Record<Phase, (ec: EffectContext) => unknown | Promise<unknown>>>;
+export type EffectScript = Partial<Record<Phase, (ec: EffectContext) => unknown | Promise<unknown>>> & {
+  /** 按伤害波触发：每次成功造成伤害的波结算后立即执行（含彼岸剑「重复对抗」波）。读取 ctx.currentWave。 */
+  applyWave?: (ec: EffectContext) => unknown | Promise<unknown>;
+};
 
 // ---------------------------------------------------------------------------
 // 玩家决策请求（「可选择」类效果）

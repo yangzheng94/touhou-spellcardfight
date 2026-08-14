@@ -32,10 +32,9 @@ export const flandre: Character = {
       declaredAtTurnStart: false,
       script: {
         // 每次成功造成伤害时使对方流失1D3：按伤害波逐波触发。
-        apply: (ec) => {
-          for (const w of ec.ctx.waveDealt[ec.foe]) {
-            if (w.physical + w.spell > 0) drainLife(ec, ec.ctx.rng.d(3), ec.foe);
-          }
+        applyWave: (ec) => {
+          const w = ec.ctx.currentWave;
+          if (w && w.target === ec.foe && w.physical + w.spell > 0) drainLife(ec, ec.ctx.rng.d(3), ec.foe);
         },
       },
     },

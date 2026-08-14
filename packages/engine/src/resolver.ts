@@ -89,6 +89,7 @@ export async function resolveTurn(
     pending: [],
     dealt: { A: { physical: 0, spell: 0 }, B: { physical: 0, spell: 0 } },
     waveDealt: { A: [], B: [] },
+    currentWave: null,
     healed: { A: 0, B: 0 },
     clashDamage: null,
     repeatClash: false,
@@ -209,9 +210,29 @@ export async function resolveTurn(
     return arr;
   };
 
+  // 每结算完一波实际造成伤害后，触发「每次成功造成伤害时」类技能的 applyWave。
+  const runWaveHooks = async (waves: { target: PlayerId; physical: number; spell: number }[]) => {
+    for (const w of waves) {
+      ctx.currentWave = w;
+      const sources = collectSources();
+      for (const src of sources) {
+        const h = src.script.applyWave;
+        if (!h) continue;
+        const curseKing = src.kind === "card" && ctx.state.players[src.owner].flags["_curse_king"] === true;
+        if (src.negatable && ctx.effectNegated[src.owner]) {
+          const uninterruptable = ctx.state.players[src.owner].flags["ability_uninterruptable"] === true;
+          if (!uninterruptable && !curseKing) continue;
+        }
+        if (src.kind === "card" && ctx.castNegated[src.owner] && !curseKing) continue;
+        await h(ecForWithTransfer(src.owner, src.kind === "card"));
+      }
+    }
+    ctx.currentWave = null;
+  };
+
   // 1. turnStart —— buff / 技能 / 符卡
   await runPhase("turnStart", withCards());
-  resolvePendingWaves(ctx, state, log);
+  await resolvePendingWaves(ctx, state, log, runWaveHooks);
 
   // turnStart 结束后列出当前生效的 BUFF 与生效顺序（包含本回合 activateOnCreate 的 buff）。
   logActiveBuffs(state, turn, order, log);
@@ -249,7 +270,7 @@ export async function resolveTurn(
   await runPhase("damage", withCards());
 
   // 6. 结算 pending（分波，支持「造成伤害后追加」）
-  resolvePendingWaves(ctx, state, log);
+  await resolvePendingWaves(ctx, state, log, runWaveHooks);
   if (state.winner) {
     state.rngState = rng.getState();
     return state;
@@ -257,7 +278,7 @@ export async function resolveTurn(
 
   // 7. apply —— 伤害结算后的追加触发（半人半灵等）
   await runPhase("apply", withCards());
-  resolvePendingWaves(ctx, state, log);
+  await resolvePendingWaves(ctx, state, log, runWaveHooks);
   if (state.winner) {
     state.rngState = rng.getState();
     return state;
@@ -265,7 +286,7 @@ export async function resolveTurn(
 
   // 8. turnEnd
   await runPhase("turnEnd", withCards());
-  resolvePendingWaves(ctx, state, log);
+  await resolvePendingWaves(ctx, state, log, runWaveHooks);
   if (state.winner) {
     state.rngState = rng.getState();
     return state;
@@ -276,7 +297,7 @@ export async function resolveTurn(
     const cd = ctx.clashDamage;
     log("turnEnd", `重复本回合对抗：${cd.source} 对 ${cd.target} 再造成 ${cd.amount} 物理`);
     ctx.pending.push({ type: "physical", amount: cd.amount, source: cd.source, target: cd.target });
-    resolvePendingWaves(ctx, state, log);
+    await resolvePendingWaves(ctx, state, log, runWaveHooks);
     if (state.winner) {
       state.rngState = rng.getState();
       return state;
@@ -325,18 +346,21 @@ export async function resolveTurn(
 /**
  * 结算排队的伤害/回复/流失。分「波」处理：一波结算完可能触发新的 pending。
  */
-function resolvePendingWaves(
+async function resolvePendingWaves(
   ctx: TurnContext,
   state: GameState,
   log: (phase: Phase | undefined, msg: string, data?: Record<string, unknown>, type?: LogEntry["type"]) => void,
-): void {
+  onWave?: (waves: { target: PlayerId; physical: number; spell: number }[]) => Promise<void>,
+): Promise<void> {
   let guard = 0;
   while (ctx.pending.length > 0 && guard < 20) {
     guard++;
     const wave = ctx.pending;
     ctx.pending = [];
-    applyDamageWave(ctx, state, wave, log);
+    const applied = applyDamageWave(ctx, state, wave, log);
     checkWin(state);
+    if (state.winner) break;
+    if (applied.length > 0 && onWave) await onWave(applied);
     if (state.winner) break;
   }
 }
@@ -346,7 +370,8 @@ function applyDamageWave(
   state: GameState,
   wave: PendingDamage[],
   log: (phase: Phase | undefined, msg: string, data?: Record<string, unknown>, type?: LogEntry["type"]) => void,
-): void {
+): { target: PlayerId; physical: number; spell: number }[] {
+  const appliedWaves: { target: PlayerId; physical: number; spell: number }[] = [];
   const charName = (p: PlayerId) => state.players[p].character.name;
 
   for (const pd of wave) {
@@ -390,7 +415,7 @@ function applyDamageWave(
 
   for (const pd of damagePackets) {
     const mods = ctx.damageConfig[pd.target][pd.type];
-    const res = applyDamageMods(pd.amount, mods);
+    const res = applyDamageMods(pd.amount, mods, { noBoost: pd.noBoost });
     perTarget[pd.target][pd.type] += res.final;
     damageDetails[pd.target][pd.type] += pd.amount; // 记录原始伤害
     if (res.reflected > 0) {
@@ -457,6 +482,7 @@ function applyDamageWave(
       ctx.dealt[t].physical += dmg.physical;
       ctx.dealt[t].spell += dmg.spell;
       ctx.waveDealt[t].push({ physical: dmg.physical, spell: dmg.spell });
+      appliedWaves.push({ target: t, physical: dmg.physical, spell: dmg.spell });
       if (dmg.spell > 0) state.stats.maxSpellDamage = Math.max(state.stats.maxSpellDamage, dmg.spell);
       
       let msg = `${charName(t)}（${t}）HP ${before} → ${p.hp}`;
@@ -493,6 +519,7 @@ function applyDamageWave(
     if (rb.spell > 0) log("apply", `${charName(s)}（${s}）受到反弹法术伤害 ${rb.spell}`, undefined, "spell");
     log("apply", `${charName(s)}（${s}）HP ${before} → ${p.hp}`, undefined, "hp");
   }
+  return appliedWaves;
 }
 
 const categoryLabel: Record<BuffCategory, string> = {
