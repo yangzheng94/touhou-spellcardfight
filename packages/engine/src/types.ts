@@ -201,6 +201,8 @@ export interface TurnContext {
   powerIgnored: Record<PlayerId, boolean>;
   /** 固定HP：该方本回合 HP 不会改变（可挡流失）。 */
   hpLocked: Record<PlayerId, boolean>;
+  /** 互换符卡效果标记：该方本回合执行对方符卡的效果（阴阳螺旋，威力不换）。 */
+  swapCardEffect: Record<PlayerId, boolean>;
 
   /** 结算过程中排队的伤害/回复/流失指令。 */
   pending: PendingDamage[];
@@ -230,6 +232,7 @@ export interface TurnContext {
 
 /** 结算阶段 */
 export type Phase =
+  | "preTurnStart" // 回合开始前的互换类效果（阴阳螺旋）
   | "turnStart" //   回合开始
   | "priority" //    优先级裁定（无效/反转）
   | "power" //       威力计算

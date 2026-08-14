@@ -191,6 +191,31 @@ describe("已裁决修正的行为规范", () => {
     expect(state.damageHistory[0].B.spell).toBe(5);
   });
 
+  it("正邪「阴阳螺旋」：互换只作用于当回合，不污染角色全局符卡（连打两局）", async () => {
+    const inyou = seija.cards.find((c) => c.id === "seija-inyou")!;
+    const originalScript = inyou.script;
+    const foeCard = card("foe", "对方卡", 2, { damage: (ec) => dealSpell(ec, 5) });
+
+    // 第一局：A 用阴阳螺旋 vs 带伤害效果的对方卡 → 互换生效（A 执行对方效果）
+    const state1 = createGameState({ ...seija }, charWith("B", 40, [foeCard]), 1);
+    await resolveTurn(state1, { card: inyou, skills: [] }, { card: foeCard, skills: [] });
+    expect(state1.damageHistory[0].B.spell).toBe(5);
+    expect(state1.log.some((l) => l.msg.includes("阴阳螺旋：互换双方符卡效果"))).toBe(true);
+    // 互换不应篡改角色全局符卡的 script
+    expect(inyou.script).toBe(originalScript);
+    // 对方卡同样不被污染（仍保留自己的 damage 效果）
+    expect(foeCard.script.damage).toBeDefined();
+
+    // 第二局：全新对局，A 再用阴阳螺旋 vs 一张无效果卡
+    // 不应再执行第一局对方卡的效果（script 未被污染）
+    const foeCard2 = card("foe2", "对方卡2", 2, {});
+    const state2 = createGameState({ ...seija }, charWith("B", 40, [foeCard2]), 2);
+    await resolveTurn(state2, { card: inyou, skills: [] }, { card: foeCard2, skills: [] });
+    expect(state2.damageHistory[0].B.spell).toBe(0);
+    expect(state2.log.some((l) => l.msg.includes("阴阳螺旋：互换双方符卡效果"))).toBe(true);
+    expect(inyou.script).toBe(originalScript);
+  });
+
   it("正邪「凝光幻剑」：替代威力对抗，双方按最终威力直接互砍", async () => {
     const gyoukou = seija.cards.find((c) => c.id === "seija-gyoukou")!;
     const state = createGameState({ ...seija }, charWith("B", 40, [card("foe", "对方", 8, {})]), 1);

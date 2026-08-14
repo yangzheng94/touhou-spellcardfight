@@ -253,15 +253,14 @@ export const seija: Character = {
       text: "互换双方符卡效果：本回合双方执行对方符卡的效果（威力不换）",
       tags: ["reverse"],
       script: {
-        // 互换双方符卡效果：在 turnStart 一次性把两张符卡的 script 对调。
-        // 由于 turnStart 阶段的效果源在互换前已收集，双方本回合都只会执行换来的效果。
-        turnStart: (ec) => {
+        // 互换双方符卡效果：在 preTurnStart 阶段给双方打上互换标记，
+        // resolver 的 cardSource 按标记取对方符卡的 script 执行（不修改卡对象，威力不换）。
+        preTurnStart: (ec) => {
           const selfCard = ec.ctx.cards[ec.self];
           const foeCard = ec.ctx.cards[ec.foe];
           if (selfCard && foeCard) {
-            const tmp = selfCard.script;
-            selfCard.script = foeCard.script;
-            foeCard.script = tmp;
+            ec.ctx.swapCardEffect[ec.self] = true;
+            ec.ctx.swapCardEffect[ec.foe] = true;
             ec.ctx.log({ type: "info", msg: "阴阳螺旋：互换双方符卡效果" });
           }
         },

@@ -86,6 +86,7 @@ export async function resolveTurn(
     castNegated: { A: false, B: false },
     powerIgnored: { A: false, B: false },
     hpLocked: { A: false, B: false },
+    swapCardEffect: { A: false, B: false },
     pending: [],
     dealt: { A: { physical: 0, spell: 0 }, B: { physical: 0, spell: 0 } },
     waveDealt: { A: [], B: [] },
@@ -157,7 +158,10 @@ export async function resolveTurn(
   const cardSource = (p: PlayerId): EffectSource | null => {
     const c = ctx.cards[p];
     if (!c) return null;
-    return { owner: p, script: c.script, negatable: true, kind: "card" };
+    // 阴阳螺旋：本回合该方执行对方符卡的效果（威力不换，owner 仍为执行方）。
+    const src = ctx.swapCardEffect[p] ? ctx.cards[other(p)] : c;
+    if (!src) return null;
+    return { owner: p, script: src.script, negatable: true, kind: "card" };
   };
 
   const ecFor = (owner: PlayerId): EffectContext => ({
@@ -229,6 +233,9 @@ export async function resolveTurn(
     }
     ctx.currentWave = null;
   };
+
+  // 0. preTurnStart —— 互换类效果（阴阳螺旋）先于 turnStart 生效
+  await runPhase("preTurnStart", withCards());
 
   // 1. turnStart —— buff / 技能 / 符卡
   await runPhase("turnStart", withCards());
