@@ -205,9 +205,20 @@ describe("已裁决修正的行为规范", () => {
     const state = createGameState({ ...seija }, charWith("B", 40, [card("foe", "对方", 1, {})]), 1);
     state.players.A.buffs.push(powerBuff("t-buff", 3));
     await resolveTurn(state, { card: gyoukou, skills: [] }, { card: card("foe", "对方", 1, {}), skills: [] });
-    // A 最终 5+3=8 >5 → B 受 8 物理 + 2 次幻觉（8 法术）；B 威力 1 直接打 A 1 物理
+    // A 最终 5+3=8 >5 → B 受 8 物理 + 2 次幻觉（各 1 法术）；B 威力 1 直接打 A 1 物理
     expect(state.damageHistory[0].A.physical).toBe(1);
     expect(state.damageHistory[0].B.physical).toBe(8);
+    expect(state.damageHistory[0].B.spell).toBe(2);
+  });
+
+  it("正邪「凝光幻剑」：伤害大于5只追加1次幻觉（不按每满5多次追加）", async () => {
+    const gyoukou = seija.cards.find((c) => c.id === "seija-gyoukou")!;
+    const state = createGameState({ ...seija }, charWith("B", 40, [card("foe", "对方", 1, {})]), 1);
+    state.players.A.buffs.push(powerBuff("t-buff", 6)); // 5+6=11 > 5
+    await resolveTurn(state, { card: gyoukou, skills: [] }, { card: card("foe", "对方", 1, {}), skills: [] });
+    // A 最终 11：基础 1 次幻觉 + 只追加 1 次（不按每满 5 重复追加）
+    expect(state.damageHistory[0].A.physical).toBe(1);
+    expect(state.damageHistory[0].B.physical).toBe(11);
     expect(state.damageHistory[0].B.spell).toBe(2);
   });
 
