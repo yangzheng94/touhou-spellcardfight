@@ -323,24 +323,27 @@ describe("玩家决策影响验证", () => {
   });
 
   describe("咲夜·THE WORLD（power阶段创建buff）", () => {
-    it("THE WORLD buff在power阶段创建，damage阶段生效", async () => {
+    it("THE WORLD buff在power阶段创建，打出回合不生效", async () => {
       const worldCard = findCard(sakuya, "sakuya-world");
       const defense = lowPowerDefense;
       const state = createGameState({ ...sakuya }, { ...youmu }, 1);
 
-      // T1: 使用THE WORLD
+      // T1: 使用THE WORLD（打出回合：不减伤/不加倍/不延迟，仅按普通威力对抗结算）
       await resolveTurn(state,
         { card: worldCard, skills: [] }, { card: defense, skills: [] },
         trackDecisions({ "花开夜": 0 }, [])
       );
 
-      // THE WORLD buff应该已创建
+      // THE WORLD buff应该已创建（打出回合不计时）
       const worldBuff = state.players.A.buffs.find(b => b.id === "sakuya-world-buff");
       expect(worldBuff).toBeDefined();
       expect(worldBuff!.remainingTurns).toBe(2);
+      // 打出回合伤害正常结算（world 5 vs 六道剑 3 → B 受 2），未被延迟
+      expect(state.players.B.hp).toBe(27);
+      expect(state.players.A.buffs.find(b => b.id === "sakuya-world-final")).toBeUndefined();
     });
 
-    it("THE WORLD：伤害延迟至后续回合结算", async () => {
+    it("THE WORLD：三回合时序——T2延迟、T3结算", async () => {
       const worldCard = findCard(sakuya, "sakuya-world");
       const attackCard = findCard(sakuya, "sakuya-doll");
       const defense = lowPowerDefense;
@@ -353,17 +356,67 @@ describe("玩家决策影响验证", () => {
       );
       const hpAfterT1 = state.players.B.hp;
 
-      // T2: THE WORLD生效期间攻击
+      // T2: 生效回合——减伤/加倍生效，本回合伤害被延迟（HP 复原），创建结算 buff
       await resolveTurn(state,
         { card: attackCard, skills: [] }, { card: defense, skills: [] },
         trackDecisions({ "杀人玩偶": 0, "花开夜": 0 }, [])
       );
-      // T2: 伤害被THE WORLD撤销，B的HP应该恢复
+      // 伤害被THE WORLD延迟：B的HP恢复原值
       expect(state.players.B.hp).toBe(hpAfterT1);
-      // 资源应该存储了伤害
-      expect(state.players.A.resources["_world_dp_a"]).toBeGreaterThan(0);
+      const worldBuff = state.players.A.buffs.find(b => b.id === "sakuya-world-buff");
+      expect(worldBuff).toBeDefined();
+      expect(worldBuff!.remainingTurns).toBe(1);
+      // 延迟结算 buff 已创建，数据含 A→B 物理伤害
+      // T2 威力对抗：杀人玩偶9 vs 六道剑（上回合翻倍）6 → 3 物理，THE WORLD 加倍 → 6
+      const finalBuff = state.players.A.buffs.find(b => b.id === "sakuya-world-final");
+      expect(finalBuff).toBeDefined();
+      expect(finalBuff!.data).toEqual({ dpA: 6, dsA: 0, dpB: 0, dsB: 0 });
+
+      // T3: 结算回合——不再减半/加倍，延迟伤害按原值结算
+      const hpBeforeT3 = state.players.B.hp;
+      await resolveTurn(state,
+        { card: defense, skills: [] }, { card: defense, skills: [] },
+        trackDecisions({ "花开夜": 0 }, [])
+      );
+      expect(state.players.B.hp).toBe(hpBeforeT3 - 6);
+      // 两个 buff 均已到期移除
+      expect(state.players.A.buffs.find(b => b.id === "sakuya-world-buff")).toBeUndefined();
+      expect(state.players.A.buffs.find(b => b.id === "sakuya-world-final")).toBeUndefined();
+    });
+
+    it("THE WORLD：T3 结算吃当回合免疫/护盾/减伤", async () => {
+      const worldCard = findCard(sakuya, "sakuya-world");
+      const attackCard = findCard(sakuya, "sakuya-doll");
+      const defense = lowPowerDefense;
+      const immunePhysical = findCard(youmu, "youmu-rokkon");
+      const state = createGameState({ ...sakuya }, { ...youmu }, 1);
+
+      await resolveTurn(state,
+        { card: worldCard, skills: [] }, { card: defense, skills: [] },
+        trackDecisions({ "花开夜": 0 }, [])
+      );
+      await resolveTurn(state,
+        { card: attackCard, skills: [] }, { card: defense, skills: [] },
+        trackDecisions({ "杀人玩偶": 0, "花开夜": 0 }, [])
+      );
+      const finalBuff = state.players.A.buffs.find(b => b.id === "sakuya-world-final");
+      expect(finalBuff).toBeDefined();
+      expect((finalBuff!.data as { dpA: number }).dpA).toBeGreaterThan(0);
+
+      // T3: 妖梦打出六根清净斩（本回合免疫物理伤害并双倍反弹）
+      const hpBeforeT3 = state.players.B.hp;
+      const hpA = state.players.A.hp;
+      await resolveTurn(state,
+        { card: defense, skills: [] }, { card: immunePhysical, skills: [] },
+        trackDecisions({ "花开夜": 0 }, [])
+      );
+      // 延迟的物理伤害被结算当回合的免疫完全抵消，B 不掉血
+      expect(state.players.B.hp).toBe(hpBeforeT3);
+      // 妖梦将免疫的物理伤害双倍反弹给咲夜
+      expect(state.players.A.hp).toBeLessThan(hpA);
     });
   });
+
 
   // ===== 新增测试：决策时机验证 =====
 

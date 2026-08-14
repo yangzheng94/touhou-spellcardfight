@@ -223,26 +223,29 @@ export const sakuya: Character = {
       tags: ["buff"],
       script: {
         power: (ec) => {
-          setRes(ec, ec.self, "_world_dp_a", 0);
-          setRes(ec, ec.self, "_world_ds_a", 0);
-          setRes(ec, ec.self, "_world_dp_b", 0);
-          setRes(ec, ec.self, "_world_ds_b", 0);
           addBuff(ec, {
             id: "sakuya-world-buff",
             name: "THE WORLD",
             owner: ec.self,
             turns: 2,
             triggers: 1,
-            activateOnCreate: true,
-            text: "己方所受伤害减半，对方所受伤害加倍，双方伤害延迟至下下回合结算",
+            // 打出回合不生效，从下一回合（remainingTurns===2）开始生效
+            activateOnCreate: false,
+            text: "下回合己方所受伤害减半，对方所受伤害加倍，双方伤害延迟至下下回合结算",
             category: "delayed-damage",
             script: {
+              // 生效回合（打出后的下一回合）：施加己方减伤伤/对方增伤伤。
+              // 结算回合（remainingTurns===1）不再施加减半/加倍，仅由结算 buff 造成延迟伤害。
               damage: (e) => {
-                e.ctx.log({ type: "info", msg: `THE WORLD：damage阶段生效，己方减伤/对方增伤` });
-                multTakenDamage(e, e.self, "physical", 0.5);
-                multTakenDamage(e, e.self, "spell", 0.5);
-                multTakenDamage(e, e.foe, "physical", 2);
-                multTakenDamage(e, e.foe, "spell", 2);
+                const worldBuff = e.ctx.state.players[e.self].buffs.find(b => b.id === "sakuya-world-buff");
+                const remainingTurns = worldBuff?.remainingTurns ?? 0;
+                if (remainingTurns === 2) {
+                  e.ctx.log({ type: "info", msg: `THE WORLD：damage阶段生效，己方减伤/对方增伤` });
+                  multTakenDamage(e, e.self, "physical", 0.5);
+                  multTakenDamage(e, e.self, "spell", 0.5);
+                  multTakenDamage(e, e.foe, "physical", 2);
+                  multTakenDamage(e, e.foe, "spell", 2);
+                }
               },
               turnEnd: (e) => {
                 const self = e.self;
@@ -251,8 +254,8 @@ export const sakuya: Character = {
                 const remainingTurns = worldBuff?.remainingTurns ?? 0;
                 e.ctx.log({ type: "info", msg: `THE WORLD：turnEnd, remainingTurns=${remainingTurns}` });
 
-                // 第一步：撤销本回合伤害并累积存储（所有 remainingTurns >= 1 的情况）
-                if (remainingTurns >= 1) {
+                // 生效回合（打出后的下一回合）：撤销本回合伤害并累积，创建结算 buff
+                if (remainingTurns === 2) {
                   const dmgA = e.ctx.dealt[foe];
                   const dmgB = e.ctx.dealt[self];
                   const totalA = dmgA.physical + dmgA.spell;
@@ -269,21 +272,11 @@ export const sakuya: Character = {
                     pB.hp = Math.min(pB.maxHp, pB.hp + totalB);
                   }
 
-                  setRes(e, self, "_world_dp_a", getRes(e, self, "_world_dp_a") + dmgA.physical);
-                  setRes(e, self, "_world_ds_a", getRes(e, self, "_world_ds_a") + dmgA.spell);
-                  setRes(e, self, "_world_dp_b", getRes(e, self, "_world_dp_b") + dmgB.physical);
-                  setRes(e, self, "_world_ds_b", getRes(e, self, "_world_ds_b") + dmgB.spell);
-                  e.ctx.dealt[self] = { physical: 0, spell: 0 };
-                  e.ctx.dealt[foe] = { physical: 0, spell: 0 };
-                }
-
-                // 第二步：remainingTurns===1 表示 THE WORLD 即将失效，此时资源已包含所有累积伤害（含本回合），创建结算 buff
-                if (remainingTurns === 1) {
-                  const dpA = getRes(e, self, "_world_dp_a");
-                  const dsA = getRes(e, self, "_world_ds_a");
-                  const dpB = getRes(e, self, "_world_dp_b");
-                  const dsB = getRes(e, self, "_world_ds_b");
-                  const total = dpA + dsA + dpB + dsB;
+                  const dpA = dmgA.physical;
+                  const dsA = dmgA.spell;
+                  const dpB = dmgB.physical;
+                  const dsB = dmgB.spell;
+                  const total = totalA + totalB;
 
                   e.ctx.log({ type: "info", msg: `THE WORLD：结算累积伤害(${self}→${foe}物理${dpA}+法术${dsA}, ${foe}→${self}物理${dpB}+法术${dsB})，下回合结算` });
 
@@ -303,6 +296,7 @@ export const sakuya: Character = {
                           const buff = ee.ctx.state.players[ee.self].buffs.find(b => b.id === "sakuya-world-final");
                           if (buff?.data) {
                             const d = buff.data;
+                            // 走正常伤害通道：吃结算当回合的免疫/护盾/减伤，也可被花开夜延后
                             if (d.dpA > 0) dealPhysical(ee, d.dpA, ee.foe, ee.self);
                             if (d.dsA > 0) dealSpell(ee, d.dsA, ee.foe, ee.self);
                             if (d.dpB > 0) dealPhysical(ee, d.dpB, ee.self, ee.foe);
@@ -313,12 +307,8 @@ export const sakuya: Character = {
                       },
                     });
                   }
-
-                  setRes(e, self, "_world_dp_a", 0);
-                  setRes(e, self, "_world_ds_a", 0);
-                  setRes(e, self, "_world_dp_b", 0);
-                  setRes(e, self, "_world_ds_b", 0);
                 }
+                // 结算回合（remainingTurns===1）：延迟伤害已由结算 buff 在下回合 damage 阶段造成，无需再处理
               },
             },
           });
