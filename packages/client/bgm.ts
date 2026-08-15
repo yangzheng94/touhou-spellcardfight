@@ -110,6 +110,35 @@ export async function playRandomBattleBGM(characterAId: string, characterBId: st
   }
 }
 
+
+/** 播放主界面/选人 BGM（main.mp3）。*/
+export async function playMenuBGM(): Promise<void> {
+  if (currentCharacterId === "main") return; // 已在播放则不重启
+  stopBGM();
+
+  currentCharacterId = "main";
+  const audio = await tryLoadAudio("main");
+  if (!audio) {
+    console.log("[BGM] 未找到 main.mp3");
+    currentCharacterId = null;
+    return;
+  }
+
+  audio.loop = true;
+  audio.volume = isMuted ? 0 : masterVolume;
+  currentAudio = audio;
+
+  try {
+    await audio.play();
+    console.log("[BGM] 播放 main");
+  } catch (err) {
+    // 自动播放策略等导致失败时静默处理
+    console.log("[BGM] 播放失败:", err);
+    currentAudio = null;
+    currentCharacterId = null;
+  }
+}
+
 /** 停止当前 BGM。*/
 export function stopBGM(): void {
   if (currentAudio) {

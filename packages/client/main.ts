@@ -1,7 +1,7 @@
 import type { CharacterInfo, GameView, LogEntry, Difficulty, ReplayData, SkillInfo } from "./protocol.js";
 import { getCardIcon, installCardIconFallback } from "./icons/index.js";
 import { getPortraitOrFallback, type PortraitState } from "./portraits.js";
-import { playRandomBattleBGM, stopBGM, toggleMute, getMuteState, setBGMVolume, getBGMVolume } from "./bgm.js";
+import { playRandomBattleBGM, playMenuBGM, stopBGM, toggleMute, getMuteState, setBGMVolume, getBGMVolume } from "./bgm.js";
 
 const app = document.getElementById("app")!;
 
@@ -459,16 +459,16 @@ const net = {
 
 function render(): void {
   if (state.replayMode) { renderReplay(); return; }
-  if (state.singleSetup) { renderSingleSetup(); return; }
+  if (state.singleSetup) { renderSingleSetup(); void playMenuBGM(); return; }
   if (state.codexOpen) { renderCodex(); return; }
   if (state.guideOpen) { renderGuide(); return; }
-  if (!state.roomId) return renderLobby();
+  if (!state.roomId) { renderLobby(); void playMenuBGM(); return; }
   if (state.gameOver) {
     if (state.showReview) { renderReview(); return; }
     renderGameOver();
     return;
   }
-  if (!state.view) { renderCharacterSelect(); return; }
+  if (!state.view) { renderCharacterSelect(); void playMenuBGM(); return; }
   renderBattle();
 }
 
