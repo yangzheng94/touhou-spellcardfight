@@ -203,7 +203,7 @@ export const sukuna: Character = {
             id: "sukuna-keikatsu-buff",
             name: "契阔",
             owner: ec.self,
-            turns: 2,
+            turns: 1,
             triggers: 1,
             text: "下回合若自己受到伤害，则对方流失 7 点生命",
             category: "delayed-damage",
@@ -261,7 +261,7 @@ export const sukuna: Character = {
             id: "sukuna-patch-buff",
             name: "还没用全力",
             owner: ec.self,
-            turns: 2,
+            turns: 1,
             text: "下回合维持 0HP 不死",
             category: "other",
             script: {

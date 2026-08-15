@@ -102,7 +102,7 @@ export const sagume: Character = {
             id: "sagume-inazuma-buff",
             name: "闪电嘶鸣",
             owner: ec.self,
-            turns: 2,
+            turns: 1,
             triggers: 1,
             text: "下回合己方造成的物理伤害翻倍，法术伤害 x1.5",
             category: "damage-taken",

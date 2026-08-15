@@ -9,6 +9,8 @@ import {
 import type { EffectScript } from "../src/types.js";
 import { dealSpell, dealPhysical, addPower } from "../src/effects.js";
 import { patches } from "../src/data/patches.js";
+import { nue } from "../src/data/nue.js";
+import { reisen } from "../src/data/reisen.js";
 import { satori } from "../src/data/satori.js";
 import { reimu } from "../src/data/reimu.js";
 import { koishi } from "../src/data/koishi.js";
@@ -20,6 +22,11 @@ import { flandre } from "../src/data/flandre.js";
 import { yuuka } from "../src/data/yuuka.js";
 import { remilia } from "../src/data/remilia.js";
 import { sakuya } from "../src/data/sakuya.js";
+import { aya } from "../src/data/aya.js";
+import { cirno } from "../src/data/cirno.js";
+import { suika } from "../src/data/suika.js";
+import { sukuna } from "../src/data/sukuna.js";
+import { tokoyo } from "../src/data/tokoyo.js";
 
 function card(id: string, name: string, power: number, script: EffectScript, tags: Card["tags"] = []): Card {
   return { id, name, power, text: name, tags, script };
@@ -270,7 +277,7 @@ describe("已裁决修正的行为规范", () => {
     // 已使用过的银色荆棘未被追加（其 apply 会给 A 挂银色荆棘-威力减半 buff）
     expect(state.players.A.buffs.some((b) => b.id === "seija-ginjou-half")).toBe(false);
     expect(state.players.A.usedCardIds).toContain("seija-shinku");
-});
+  });
 
   it("幽香「幽梦」：全局偶数回合触发流失，奇数回合不触发", async () => {
     const yuumu = yuuka.skills.find((s) => s.id === "yuuka-yuumu")!;
@@ -512,6 +519,83 @@ describe("已裁决修正的行为规范", () => {
     state.players.A.resources["_patches_riki_prep"] = 3;
     await resolveTurn(state, { card: null, skills: [riki] }, { card: dummy, skills: [] });
     expect(state.players.A.buffs.some((b) => b.id === "patches-riki-qidong-buff")).toBe(true);
+  });
+
+  it("鵺「蛇行表演」：1d3 回合（1~3），修复 off-by-one（曾出现 4 回合）", async () => {
+    const hebi = nue.cards.find((c) => c.id === "nue-hebi")!;
+    const dummy = card("d", "空", 0, {});
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]) {
+      const state = createGameState({ ...nue }, charWith("B", 60, [dummy]), seed);
+      await resolveTurn(state, { card: hebi, skills: [] }, { card: dummy, skills: [] });
+      const b = state.players.A.buffs.find((x) => x.id === "nue-hebi-buff");
+      expect(b?.remainingTurns).toBeGreaterThanOrEqual(1);
+      expect(b?.remainingTurns).toBeLessThanOrEqual(3);
+    }
+  });
+
+  it("封兽鵺「未确认幻想飞行少女」：下回合免疫持续 1 回合（修复：曾持续 2 回合）", async () => {
+    const hikou = nue.skills.find((s) => s.id === "nue-hikou")!;
+    const foe = card("foe", "对方", 12, {});
+    const state = createGameState({ ...nue }, charWith("B", 40, [foe]), 1);
+    // A 打出低威力符卡，B 威力 12 → A 受到物理伤害，触发飞行少女
+    await resolveTurn(state, { card: nue.cards[0], skills: [hikou] }, { card: foe, skills: [] });
+    const b = state.players.A.buffs.find((x) => x.id === "nue-immune-phys");
+    expect(b).toBeDefined();
+    expect(b?.remainingTurns).toBe(1);
+  });
+
+  it("帕奇「幽邃庇护」：下两回合符卡威力 +2（buff 持续 2 回合）", async () => {
+    const yousui = patches.cards.find((c) => c.id === "patches-yousui")!;
+    const dummy = card("d", "空", 0, {});
+    const state = createGameState({ ...patches }, charWith("B", 60, [dummy]), 1);
+    await resolveTurn(state, { card: yousui, skills: [] }, { card: dummy, skills: [] });
+    const b = state.players.A.buffs.find((x) => x.id === "patches-yousui-buff");
+    expect(b).toBeDefined();
+    expect(b?.remainingTurns).toBe(2);
+  });
+
+  it("铃仙「幻胧月睨」：下回合免疫物理 buff 持续 1 回合", async () => {
+    const gerou = reisen.cards.find((c) => c.id === "reisen-gerou")!;
+    const dummy = card("d", "空", 0, {});
+    const state = createGameState({ ...reisen }, charWith("B", 60, [dummy]), 1);
+    await resolveTurn(state, { card: gerou, skills: [] }, { card: dummy, skills: [] });
+    const b = state.players.A.buffs.find((x) => x.id === "reisen-gerou-next");
+    expect(b).toBeDefined();
+    expect(b?.remainingTurns).toBe(1);
+  });
+
+  it("「下回合」类 BUFF：创建后剩余 1 回合（修复：曾显示 2 回合）", async () => {
+    const dummy = card("d", "空", 0, {});
+    const cases: [Character, string, string][] = [
+      [aya, "aya-fujinissen", "aya-fujin-zero"],
+      [aya, "aya-gyakufuu", "aya-gyakufuu-negate-self"],
+      [koishi, "koishi-superego", "koishi-superego-buff"],
+      [remilia, "remilia-harinoyama", "remilia-harinoyama-buff"],
+      [sagume, "sagume-inazuma", "sagume-inazuma-buff"],
+      [suika, "suika-hyakki", "suika-hyakki-buff"],
+      [tokoyo, "tokoyo-joya", "tokoyo-joya-buff"],
+      [sukuna, "sukuna-keikatsu", "sukuna-keikatsu-buff"],
+      [reimu, "reimu-san", "reimu-san-buff"],
+    ];
+    for (const [ch, cardId, buffId] of cases) {
+      const c = ch.cards.find((x) => x.id === cardId)!;
+      expect(c, `${ch.name} 缺少符卡 ${cardId}`).toBeDefined();
+      const state = createGameState({ ...ch }, charWith("B", 60, [dummy]), 1);
+      await resolveTurn(state, { card: c, skills: [] }, { card: dummy, skills: [] });
+      const b = state.players.A.buffs.find((x) => x.id === buffId);
+      expect(b, `${ch.name} ${cardId} 应创建 ${buffId}`).toBeDefined();
+      expect(b?.remainingTurns, `${buffId} 应持续 1 回合`).toBe(1);
+    }
+  });
+
+  it("琪露诺「剑式制冰器」：下回合 6 法术伤害 buff 持续 1 回合", async () => {
+    const icemaker = cirno.skills.find((s) => s.id === "cirno-icemaker")!;
+    const dummy = card("d", "空", 0, {});
+    const state = createGameState({ ...cirno }, charWith("B", 60, [dummy]), 1);
+    await resolveTurn(state, { card: null, skills: [icemaker] }, { card: dummy, skills: [] });
+    const b = state.players.A.buffs.find((x) => x.id === "cirno-icemaker-next");
+    expect(b).toBeDefined();
+    expect(b?.remainingTurns).toBe(1);
   });
 
 });

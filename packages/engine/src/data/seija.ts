@@ -116,7 +116,7 @@ export const seija: Character = {
               id: "seija-ginjou-half",
             name: "银色荆棘-威力减半",
             owner: ec.self,
-            turns: 2,
+            turns: 1,
             triggers: 1,
             text: "下回合对方符卡威力减半",
             category: "power",

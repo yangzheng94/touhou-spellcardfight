@@ -172,7 +172,7 @@ export const koishi: Character = {
             id: "koishi-superego-buff",
             name: "超我-威力-6",
             owner: ec.self,
-            turns: 2,
+            turns: 1,
             triggers: 1,
             text: "下回合对方符卡威力下降 6 点",
             category: "power",

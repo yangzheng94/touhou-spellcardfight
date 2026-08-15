@@ -107,7 +107,7 @@ export const reimu: Character = {
             id: "reimu-san-buff",
             name: "梦想封印散",
             owner: ec.self,
-            turns: 2,
+            turns: 1,
             triggers: 1,
             text: "下回合对对方造成 3 点法术伤害",
             category: "delayed-damage",

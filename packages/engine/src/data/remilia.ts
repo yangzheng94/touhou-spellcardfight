@@ -143,7 +143,7 @@ export const remilia: Character = {
             id: "remilia-harinoyama-buff",
             name: "针山-对方威力+4",
             owner: ec.self,
-            turns: 2,
+            turns: 1,
             triggers: 1,
             text: "下回合对方符卡威力 +4",
             category: "power",
