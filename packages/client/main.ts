@@ -838,7 +838,7 @@ function renderSingleSetup(): void {
   const difficulties: { id: Difficulty; label: string; desc: string; disabled?: boolean }[] = [
     { id: "easy", label: "简单", desc: "草根妖怪也能取胜的程度" },
     { id: "medium", label: "中等", desc: "稍微有些棘手的程度" },
-    { id: "hard", label: "困难", desc: "需要全力以赴的程度（未完成）", disabled: true },
+    { id: "hard", label: "困难", desc: "需要全力以赴的程度" },
   ];
   app.innerHTML = `
     <div class="subscreen">
@@ -898,10 +898,6 @@ function renderSingleSetup(): void {
   app.querySelectorAll<HTMLElement>(".difficulty-btn").forEach((el) => {
     el.onclick = () => {
       const d = el.dataset.difficulty as Difficulty;
-      if (d === "hard") {
-        showBanner("困难难度暂未开放（最优解 AI 开发中），请先选择简单或中等");
-        return;
-      }
       state.singleDifficulty = d;
       render();
     };

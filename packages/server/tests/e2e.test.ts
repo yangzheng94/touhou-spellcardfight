@@ -235,6 +235,44 @@ describe("服务器端到端对战", () => {
   }, 30000);
 
 
+  it("单人模式：困难人机可正常创建并结算多回合（最优解 AI 不抛错）", async () => {
+    const a = await connect();
+    const received: ServerMessage[] = [];
+    a.on("message", (raw: Buffer) => {
+      const msg = JSON.parse(raw.toString()) as ServerMessage;
+      received.push(msg);
+    });
+
+    send(a, { type: "createSinglePlayerRoom", name: "SoloHard", difficulty: "hard" });
+    const created = (await waitFor(a, "roomCreated")) as Extract<ServerMessage, { type: "roomCreated" }>;
+    expect(created.seat).toBe("A");
+
+    const startP = waitFor(a, "gameStart");
+    send(a, { type: "selectCharacter", characterId: "youmu" });
+    const gs = (await startP) as Extract<ServerMessage, { type: "gameStart" }>;
+    expect(gs.you).toBe("A");
+    expect(gs.oppChar).toBeTruthy();
+
+    // 至少结算 3 个回合（每回合服务器会为困难 AI 运行最优解搜索）
+    let view = gs.view;
+    let resolvedTurns = 0;
+    for (let turn = 0; turn < 3; turn++) {
+      const hand = view.hands.A;
+      const cardA = hand.length > 0 ? hand[0].id : null;
+      send(a, { type: "submitMove", cardId: cardA, skillIds: [] });
+      const msg = (await waitForAny(a, ["turnResolved", "gameOver"])) as ServerMessage;
+      if (msg.type === "gameOver") break;
+      view = (msg as Extract<ServerMessage, { type: "turnResolved" }>).view;
+      resolvedTurns++;
+    }
+
+    expect(resolvedTurns).toBeGreaterThanOrEqual(1);
+    // 全程不应收到"困难难度暂未开放"之类的错误
+    const errors = received.filter((m) => m.type === "error");
+    expect(errors.length).toBe(0);
+    a.close();
+  }, 60000);
+
   it("断线重连：对局中断线后对手收到通知，重连可恢复对局并继续结算", async () => {
     const a = await connect();
     const b = await connect();

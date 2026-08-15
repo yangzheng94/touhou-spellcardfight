@@ -10,6 +10,7 @@ import {
   type DecisionResolver,
 } from "../../engine/src/index.js";
 import { CHARACTERS, CHARACTERS_BY_ID } from "../../engine/src/data/index.js";
+import { chooseHardMove, hardDecide } from "./ai.js";
 import type {
   ClientMessage,
   ServerMessage,
@@ -169,10 +170,18 @@ class Room {
   }
 
   /** AI 生成本回合的 move：按难度分派策略。 */
-  generateAIMove(): void {
+  async generateAIMove(): Promise<void> {
     if (!this.state || !this.seats.B.isAI) return;
     if (this.difficulty === "medium") this.generateAIMoveMedium();
+    else if (this.difficulty === "hard") await this.generateAIMoveHard();
     else this.generateAIMoveEasy();
+  }
+
+  /** 困难人机：最优解策略。对候选着法做 1 层前瞻真实结算，选择最坏情况下最优的着法。 */
+  async generateAIMoveHard(): Promise<void> {
+    const seat: PlayerId = "B";
+    const move = await chooseHardMove(this.state!, seat);
+    this.seats.B.pendingMove = move;
   }
 
   /** 简单人机：完全随机。随机选符卡（或空过），随机宣告部分技能。 */
@@ -223,8 +232,11 @@ class Room {
     this.seats.B.pendingMove = { cardId, skillIds };
   }
 
-  /** AI 对决策请求做出随机选择。 */
-  aiDecide(req: Parameters<DecisionResolver>[0]): number {
+  /** AI 对决策请求做出选择：困难走智能策略（hardDecide），其余难度随机。 */
+  aiDecide(req: Parameters<DecisionResolver>[0], state?: GameState | null): number {
+    if (this.difficulty === "hard" && state) {
+      return hardDecide(state, req.player, req);
+    }
     if (req.options && req.options.length > 0) {
       return Math.floor(Math.random() * req.options.length);
     }
@@ -289,9 +301,9 @@ class Room {
       }
       lastLogIndex = this.state!.log.length;
 
-      // AI 玩家直接随机决策
+      // AI 玩家直接决策（困难难度走最优策略）
       if (this.seats[req.player].isAI) {
-        return Promise.resolve(this.aiDecide(req));
+        return Promise.resolve(this.aiDecide(req, this.state));
       }
 
       // 发送决策请求给对应玩家
@@ -474,7 +486,7 @@ export function attachWebSocket(wss: WebSocketServer): void {
       } catch {
         return;
       }
-      handle(conn, msg);
+      void handle(conn, msg);
     });
 
     ws.on("close", () => {
@@ -496,7 +508,7 @@ export function attachWebSocket(wss: WebSocketServer): void {
   });
 }
 
-function handle(conn: Conn, msg: ClientMessage): void {
+async function handle(conn: Conn, msg: ClientMessage): Promise<void> {
   switch (msg.type) {
     case "createRoom": {
       const id = makeRoomId();
@@ -510,9 +522,6 @@ function handle(conn: Conn, msg: ClientMessage): void {
       break;
     }
     case "createSinglePlayerRoom": {
-      if (msg.difficulty === "hard") {
-        return send(conn.ws, { type: "error", message: "困难难度暂未开放，请先选择简单或中等" });
-      }
       const id = makeRoomId();
       const room = new Room(id, seedCounter++);
       rooms.set(id, room);
@@ -520,7 +529,8 @@ function handle(conn: Conn, msg: ClientMessage): void {
       room.seats.A.name = msg.name ?? "玩家A";
       room.seats.B.isAI = true;
       room.difficulty = msg.difficulty ?? "easy";
-      room.seats.B.name = room.difficulty === "medium" ? "中等人机" : "简单人机";
+      room.seats.B.name =
+        room.difficulty === "hard" ? "困难人机" : room.difficulty === "medium" ? "中等人机" : "简单人机";
       conn.roomId = id;
       conn.seat = "A";
       console.log(`[server] single player room ${id} created (difficulty=${room.difficulty}, opponent=${msg.opponentId ?? "random"})`);
@@ -608,6 +618,7 @@ function handle(conn: Conn, msg: ClientMessage): void {
         console.log(`[server] submitMove rejected: room=${!!room} state=${!!room?.state}`);
         return;
       }
+      if (room.isResolving) return; // 结算中忽略重复提交
 
       const seat = conn.seat;
       const opp = seat === "A" ? "B" : "A";
@@ -617,7 +628,7 @@ function handle(conn: Conn, msg: ClientMessage): void {
       if (selfHasForesight && !room.seats[opp].pendingMove) {
         // 单人模式：AI 不会主动提交，先自动生成 AI move 并 reveal 给本方，再由本方重新提交。
         if (room.seats[opp].isAI) {
-          room.generateAIMove();
+          await room.generateAIMove();
           room.state.players[seat].flags["_foresight_triggered"] = true;
           room.state.players[seat].flags["foresight"] = false;
           send(conn.ws, {
@@ -635,7 +646,7 @@ function handle(conn: Conn, msg: ClientMessage): void {
 
       // 单人模式：若对手是 AI 且尚未提交，自动生成 AI move。
       if (room.seats[opp].isAI && !room.seats[opp].pendingMove) {
-        room.generateAIMove();
+        await room.generateAIMove();
       }
 
       // 若对手拥有 foresight 且尚未提交，则向对手 reveal 本方的选择。
