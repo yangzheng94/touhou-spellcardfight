@@ -48,6 +48,34 @@ export interface LogEntryView {
   type?: "physical" | "spell" | "hp" | "buff" | "info";
 }
 
+/** 人机难度：简单（随机）/ 中等（启发式）/ 困难（预留最优解）。 */
+export type Difficulty = "easy" | "medium" | "hard";
+
+/** 录像：单回合数据（双方出牌、HP 快照、本回合日志）。 */
+export interface ReplayTurn {
+  turn: number;
+  moves: {
+    A: { cardId: string | null; skillIds: string[] };
+    B: { cardId: string | null; skillIds: string[] };
+  };
+  hpAfter: { A: number; B: number };
+  log: LogEntryView[];
+}
+
+/** 完整对局录像（自包含：含双方角色数据，可离线回放）。 */
+export interface ReplayData {
+  version: number;
+  meta: {
+    charA: CharacterInfo;
+    charB: CharacterInfo;
+    seed: number;
+    createdAt: number;
+    difficulty?: Difficulty;
+  };
+  turns: ReplayTurn[];
+  winner: "A" | "B" | "draw" | null;
+}
+
 export interface GameView {
   turn: number;
   players: { A: PlayerView; B: PlayerView };
@@ -60,7 +88,7 @@ export interface GameView {
 /** 客户端 → 服务器 */
 export type ClientMessage =
   | { type: "createRoom"; name?: string }
-  | { type: "createSinglePlayerRoom"; name?: string }
+  | { type: "createSinglePlayerRoom"; name?: string; opponentId?: string; difficulty?: Difficulty }
   | { type: "joinRoom"; roomId: string; name?: string }
   | { type: "selectCharacter"; characterId: string }
   | { type: "submitMove"; cardId: string | null; skillIds: string[] }
@@ -81,5 +109,5 @@ export type ServerMessage =
   | { type: "logEntry"; entry: LogEntryView }
   | { type: "decisionRequest"; prompt: string; options: string[]; range?: { min: number; max: number } }
   | { type: "opponentLeft" }
-  | { type: "gameOver"; winner: "A" | "B" | "draw"; view: GameView }
+  | { type: "gameOver"; winner: "A" | "B" | "draw"; view: GameView; replay?: ReplayData }
   | { type: "foresightReveal"; opponentCard: string | null; opponentSkills: string[] };

@@ -16,6 +16,8 @@ import type {
   GameView,
   PlayerView,
   CardInfo,
+  ReplayData,
+  Difficulty,
 } from "./protocol.js";
 
 // ---------------------------------------------------------------------------
@@ -120,27 +122,78 @@ class Room {
   state: GameState | null = null;
   seed: number;
   isResolving: boolean = false;
+  /** 单人模式人机难度（默认简单）。 */
+  difficulty: Difficulty = "easy";
+  /** 录像数据：逐回合记录双方出牌、HP 快照与日志。 */
+  replayTurns: ReplayData["turns"] = [];
 
   constructor(id: string, seed: number) {
     this.id = id;
     this.seed = seed;
   }
 
-  /** AI 随机选择一名角色。 */
-  aiPickCharacter(): void {
-    const chars = CHARACTERS.filter((c) => c.id !== "patches" || true); // 可扩展：排除未完成的角色
-    const idx = Math.floor(Math.random() * chars.length);
-    this.seats.B.characterId = chars[idx].id;
-    this.broadcast({ type: "characterChosen", seat: "B", characterId: chars[idx].id });
+  /** AI 选择角色：指定 opponentId 则选该角色，否则随机。 */
+  aiPickCharacter(opponentId?: string): void {
+    let picked: Character;
+    if (opponentId && CHARACTERS_BY_ID[opponentId]) {
+      picked = CHARACTERS_BY_ID[opponentId];
+    } else {
+      const chars = CHARACTERS;
+      picked = chars[Math.floor(Math.random() * chars.length)];
+    }
+    this.seats.B.characterId = picked.id;
+    this.broadcast({ type: "characterChosen", seat: "B", characterId: picked.id });
   }
 
-  /** AI 生成本回合的 move：随机选可用符卡，冷却好的非被动技能全选。 */
+  /** AI 生成本回合的 move：按难度分派策略。 */
   generateAIMove(): void {
     if (!this.state || !this.seats.B.isAI) return;
+    if (this.difficulty === "medium") this.generateAIMoveMedium();
+    else this.generateAIMoveEasy();
+  }
+
+  /** 简单人机：完全随机。随机选符卡（或空过），随机宣告部分技能。 */
+  generateAIMoveEasy(): void {
     const seat: PlayerId = "B";
-    const player = this.state.players[seat];
+    const player = this.state!.players[seat];
     const hand = player.character.cards.filter((c) => !player.usedCardIds.includes(c.id));
-    const cardId = hand.length > 0 ? hand[Math.floor(Math.random() * hand.length)].id : null;
+    const cardId = hand.length > 0 && Math.random() < 0.9 ? hand[Math.floor(Math.random() * hand.length)].id : null;
+    const skillIds = player.character.skills
+      .filter((s) => !s.passive && isSkillReady(this.state!, seat, s) && Math.random() < 0.6)
+      .map((s) => s.id);
+    this.seats.B.pendingMove = { cardId, skillIds };
+  }
+
+  /** 中等人机：启发式。低血量优先防御牌，否则选期望威力最高的牌；宣告所有可用技能。 */
+  generateAIMoveMedium(): void {
+    const seat: PlayerId = "B";
+    const player = this.state!.players[seat];
+    const foe = this.state!.players.A;
+    const hand = player.character.cards.filter((c) => !player.usedCardIds.includes(c.id));
+    const lowHp = player.hp <= Math.ceil(player.maxHp * 0.4);
+    const opponentThreat = foe.hp <= Math.ceil(foe.maxHp * 0.4);
+
+    let cardId: string | null = null;
+    if (hand.length > 0) {
+      const defensive = hand.filter((c) =>
+        c.tags.some((t) => t === "immune" || t === "reflect" || t === "absorb" || t === "heal" || t === "negate-effect")
+      );
+      const pool = lowHp && defensive.length > 0 ? defensive : hand;
+      let best = pool[0];
+      let bestScore = -Infinity;
+      for (const c of pool) {
+        let score = c.power;
+        if (defensive.includes(c)) score += lowHp ? 12 : 4;
+        if (c.tags.includes("spell-damage")) score += 3;
+        if (c.tags.includes("manual")) score -= 6;
+        if (opponentThreat && c.power > 0) score += 2;
+        if (score > bestScore) {
+          bestScore = score;
+          best = c;
+        }
+      }
+      cardId = best.id;
+    }
     const skillIds = player.character.skills
       .filter((s) => !s.passive && isSkillReady(this.state!, seat, s))
       .map((s) => s.id);
@@ -249,11 +302,22 @@ class Room {
       return;
     }
 
+    // 记录本回合录像（双方出牌 + HP 快照 + 本回合新增日志）
+    this.replayTurns.push({
+      turn: this.state.turn,
+      moves: {
+        A: { cardId: moveA.cardId, skillIds: moveA.skillIds },
+        B: { cardId: moveB.cardId, skillIds: moveB.skillIds },
+      },
+      hpAfter: { A: this.state.players.A.hp, B: this.state.players.B.hp },
+      log: this.state.log.slice(prevLogLen).map((e) => ({ turn: e.turn, phase: e.phase, msg: e.msg, type: e.type })),
+    });
+
     this.seats.A.pendingMove = null;
     this.seats.B.pendingMove = null;
     this.broadcast({ type: "turnResolved", view: gameView(this.state) });
     if (this.state.winner) {
-      this.broadcast({ type: "gameOver", winner: this.state.winner, view: gameView(this.state) });
+      this.broadcast({ type: "gameOver", winner: this.state.winner, view: gameView(this.state), replay: this.buildReplay() });
     }
     this.isResolving = false;
   }
@@ -264,6 +328,23 @@ class Room {
       seat.pendingDecision.resolve(value);
       seat.pendingDecision = null;
     }
+  }
+
+  /** 汇总整局录像数据（角色信息 + 逐回合出牌/HP/日志）。 */
+  buildReplay(): ReplayData {
+    const st = this.state!;
+    return {
+      version: 1,
+      meta: {
+        charA: characterInfo(null, null, st.players.A.character),
+        charB: characterInfo(null, null, st.players.B.character),
+        seed: this.seed,
+        createdAt: Date.now(),
+        difficulty: this.seats.B.isAI ? this.difficulty : undefined,
+      },
+      turns: this.replayTurns,
+      winner: st.winner,
+    };
   }
 }
 
@@ -296,10 +377,41 @@ export function startServer(port: number): void {
   const wss = new WebSocketServer({ port });
   console.log(`[server] WebSocket 监听 ws://localhost:${port}`);
   attachWebSocket(wss);
+
+  // 心跳：30 秒无响应则断开，防止僵尸连接占位。
+  const heartbeat = setInterval(() => {
+    for (const client of wss.clients) {
+      const sock = client as WebSocket & { isAlive?: boolean };
+      if (sock.isAlive === false) {
+        sock.terminate();
+        continue;
+      }
+      sock.isAlive = false;
+      try {
+        sock.ping();
+      } catch {
+        /* 连接已关闭 */
+      }
+    }
+    // 空房间回收：双方座位都无存活连接时删除（AI 座位不占连接）。
+    for (const [id, room] of rooms) {
+      const aAlive = room.seats.A.ws && room.seats.A.ws.readyState === WebSocket.OPEN;
+      const bAlive = room.seats.B.ws && room.seats.B.ws.readyState === WebSocket.OPEN;
+      if (!aAlive && !bAlive) {
+        rooms.delete(id);
+      }
+    }
+  }, 30_000);
+  heartbeat.unref?.();
 }
 
 export function attachWebSocket(wss: WebSocketServer): void {
   wss.on("connection", (ws) => {
+    const sock = ws as WebSocket & { isAlive?: boolean };
+    sock.isAlive = true;
+    sock.on("pong", () => {
+      sock.isAlive = true;
+    });
     const conn: Conn = { ws, roomId: null, seat: null };
     ws.send(JSON.stringify(rosterMessage()));
 
@@ -343,19 +455,23 @@ function handle(conn: Conn, msg: ClientMessage): void {
       break;
     }
     case "createSinglePlayerRoom": {
+      if (msg.difficulty === "hard") {
+        return send(conn.ws, { type: "error", message: "困难难度暂未开放，请先选择简单或中等" });
+      }
       const id = makeRoomId();
       const room = new Room(id, seedCounter++);
       rooms.set(id, room);
       room.seats.A.ws = conn.ws;
       room.seats.A.name = msg.name ?? "玩家A";
       room.seats.B.isAI = true;
-      room.seats.B.name = "简单人机";
+      room.difficulty = msg.difficulty ?? "easy";
+      room.seats.B.name = room.difficulty === "medium" ? "中等人机" : "简单人机";
       conn.roomId = id;
       conn.seat = "A";
-      console.log(`[server] single player room ${id} created`);
+      console.log(`[server] single player room ${id} created (difficulty=${room.difficulty}, opponent=${msg.opponentId ?? "random"})`);
       send(conn.ws, { type: "roomCreated", roomId: id, seat: "A" });
-      // AI 自动随机选将
-      room.aiPickCharacter();
+      // AI 选择对手（指定或随机）
+      room.aiPickCharacter(msg.opponentId ?? undefined);
       console.log(`[server] AI picked character ${room.seats.B.characterId}`);
       break;
     }
