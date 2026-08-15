@@ -10,13 +10,43 @@
  * 若文件不存在或播放失败，则静默跳过，不影响游戏。
  */
 
-const BGM_BASE = "/bgm";
+const BGM_BASE = "bgm"; // 相对路径：兼容根路径与子路径部署（GitHub Pages / VPS 子目录）
 const SUPPORTED_EXTS = ["mp3", "ogg", "wav"];
 const VOLUME_KEY = "thsb_bgm_volume";
 const MUTED_KEY = "thsb_bgm_muted";
 
 let currentAudio: HTMLAudioElement | null = null;
 let currentCharacterId: string | null = null;
+let pendingPlay: { audio: HTMLAudioElement; characterId: string } | null = null;
+let retryOnGestureInstalled = false;
+
+/**
+ * 浏览器自动播放策略会在无用户交互时拦截 audio.play()。
+ * 此时把音频挂起，等用户首次点击/按键后自动补播。
+ */
+function retryPlayOnGesture(): void {
+  if (retryOnGestureInstalled) return;
+  retryOnGestureInstalled = true;
+  const tryPlay = () => {
+    retryOnGestureInstalled = false;
+    window.removeEventListener("pointerdown", tryPlay);
+    window.removeEventListener("keydown", tryPlay);
+    window.removeEventListener("touchstart", tryPlay);
+    const pending = pendingPlay;
+    pendingPlay = null;
+    if (!pending) return;
+    currentAudio = pending.audio;
+    currentCharacterId = pending.characterId;
+    pending.audio.play().catch(() => {
+      console.log(`[BGM] 用户交互后播放 ${pending.characterId} 仍失败`);
+      currentAudio = null;
+      currentCharacterId = null;
+    });
+  };
+  window.addEventListener("pointerdown", tryPlay);
+  window.addEventListener("keydown", tryPlay);
+  window.addEventListener("touchstart", tryPlay);
+}
 
 function readStoredVolume(): number {
   try {
@@ -104,9 +134,11 @@ export async function playRandomBattleBGM(characterAId: string, characterBId: st
     await audio.play();
     console.log(`[BGM] 播放 ${characterId}`);
   } catch (err) {
-    // 自动播放策略等导致失败时静默处理
-    console.log("[BGM] 播放失败:", err);
+    // 自动播放策略拦截：等待首次用户交互后自动补播
+    console.log("[BGM] 播放被拦截，等待用户交互后重试:", err);
     currentAudio = null;
+    pendingPlay = { audio, characterId };
+    retryPlayOnGesture();
   }
 }
 
@@ -132,10 +164,12 @@ export async function playMenuBGM(): Promise<void> {
     await audio.play();
     console.log("[BGM] 播放 main");
   } catch (err) {
-    // 自动播放策略等导致失败时静默处理
-    console.log("[BGM] 播放失败:", err);
+    // 自动播放策略拦截：等待首次用户交互后自动补播
+    console.log("[BGM] 播放 main 被拦截，等待用户交互后重试:", err);
     currentAudio = null;
     currentCharacterId = null;
+    pendingPlay = { audio, characterId: "main" };
+    retryPlayOnGesture();
   }
 }
 
@@ -147,6 +181,7 @@ export function stopBGM(): void {
     currentAudio = null;
   }
   currentCharacterId = null;
+  pendingPlay = null;
 }
 
 /** 设置 BGM 音量（0~1），并持久化到本地。*/
