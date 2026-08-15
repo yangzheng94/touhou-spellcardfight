@@ -92,7 +92,7 @@ function gameView(state: GameState): GameView {
     turn: state.turn,
     players: { A: playerView(state, "A"), B: playerView(state, "B") },
     winner: state.winner,
-    log: state.log.map((e) => ({ turn: e.turn, phase: e.phase, msg: e.msg })),
+    log: state.log.map((e) => ({ turn: e.turn, phase: e.phase, msg: e.msg, type: e.type })),
     hands,
     used,
   };

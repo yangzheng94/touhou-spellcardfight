@@ -43,7 +43,7 @@ export interface GameView {
   turn: number;
   players: { A: PlayerView; B: PlayerView };
   winner: "A" | "B" | "draw" | null;
-  log: { turn: number; phase?: string; msg: string }[];
+  log: LogEntry[];
   hands: { A: CardInfo[]; B: CardInfo[] };
   used: { A: CardInfo[]; B: CardInfo[] };
 }

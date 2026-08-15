@@ -140,6 +140,7 @@ interface State {
   oppSelectedSkills: string[];
   gameOver: boolean;
   gameOverWinner: "A" | "B" | "draw" | null;
+  showReview: boolean;
   hurtUntilMe: number;
   hurtUntilO: number;
 }
@@ -164,6 +165,7 @@ const state: State = {
   oppSelectedSkills: [],
   gameOver: false,
   gameOverWinner: null,
+  showReview: false,
   hurtUntilMe: 0,
   hurtUntilO: 0,
 };
@@ -342,7 +344,11 @@ const net = {
 
 function render(): void {
   if (!state.roomId) return renderLobby();
-  if (state.gameOver) { renderGameOver(); return; }
+  if (state.gameOver) {
+    if (state.showReview) { renderReview(); return; }
+    renderGameOver();
+    return;
+  }
   if (!state.view) { renderCharacterSelect(); return; }
   renderBattle();
 }
@@ -379,10 +385,19 @@ function renderGameOver(): void {
         </div>
       </div>
       <div class="gameover-actions">
+        <button id="btn-review" class="btn-primary">📜 复盘战斗</button>
         <button id="btn-back-lobby" class="btn-primary">返回大厅</button>
       </div>
     </div>`;
   
+  const btnReview = document.getElementById("btn-review");
+  if (btnReview) {
+    btnReview.onclick = () => {
+      state.showReview = true;
+      render();
+    };
+  }
+
   const btnBack = document.getElementById("btn-back-lobby");
   if (btnBack) {
     btnBack.onclick = () => {
@@ -393,6 +408,95 @@ function renderGameOver(): void {
   }
 }
 
+function renderReview(): void {
+  const v = state.view!;
+  const my = state.you!;
+  const fo = my === "A" ? "B" : "A";
+  const me = v.players[my];
+  const opp = v.players[fo];
+
+  // 按回合分组展示完整战斗日志
+  const groups: { turn: number; entries: LogEntry[] }[] = [];
+  for (const e of v.log) {
+    let g = groups.find((x) => x.turn === e.turn);
+    if (!g) {
+      g = { turn: e.turn, entries: [] };
+      groups.push(g);
+    }
+    g.entries.push(e);
+  }
+
+  const phaseLabels: Record<string, string> = {
+    preTurnStart: "回合开始前",
+    turnStart: "回合开始",
+    priority: "优先级裁定",
+    power: "威力计算",
+    clash: "威力对抗",
+    damage: "伤害结算",
+    apply: "效果结算",
+    turnEnd: "回合结束",
+  };
+
+  const turnHtml = groups
+    .map((g) => `
+      <div class="review-turn-group">
+        <div class="review-turn-header">第 ${g.turn} 回合</div>
+        ${g.entries
+          .map((e) => `
+            <div class="log-line ${e.type ?? ""}">
+              ${e.phase ? `<span class="review-phase">${phaseLabels[e.phase] ?? e.phase}</span>` : ""}
+              <span class="lt">T${e.turn}</span> ${e.msg}
+            </div>`)
+          .join("")}
+      </div>`)
+    .join("") || '<div class="log-empty">暂无战斗记录</div>';
+
+  const winnerText =
+    v.winner === "draw"
+      ? "平局"
+      : v.winner === null
+        ? "未分胜负"
+        : v.winner === my
+          ? "你获胜"
+          : "你失败";
+
+  app.innerHTML = `
+    <div class="review-overlay" id="review-overlay">
+      <div class="review-panel">
+        <div class="review-header">
+          <div class="review-title">📜 战斗复盘</div>
+          <button id="btn-review-close" class="review-close">✕ 关闭</button>
+        </div>
+        <div class="review-sub">
+          ${me.characterName}（你）${me.hp}/${me.maxHp} HP&nbsp;&nbsp;vs&nbsp;&nbsp;${opp.characterName}（对手）${opp.hp}/${opp.maxHp} HP
+          &nbsp;·&nbsp;${winnerText} · 共 ${groups.length} 回合
+        </div>
+        <div id="review-log" class="review-log">${turnHtml}</div>
+      </div>
+    </div>`;
+
+  const btnClose = document.getElementById("btn-review-close");
+  if (btnClose) {
+    btnClose.onclick = () => {
+      state.showReview = false;
+      render();
+    };
+  }
+  const overlay = document.getElementById("review-overlay");
+  if (overlay) {
+    overlay.onclick = (e) => {
+      if (e.target === overlay) {
+        state.showReview = false;
+        render();
+      }
+    };
+  }
+
+  // 默认滚动到底部，直接看到最后一回合的结算细节
+  const logEl = document.getElementById("review-log");
+  if (logEl) logEl.scrollTop = logEl.scrollHeight;
+}
+
 function resetToLobby(): void {
   stopBGM();
   state.roomId = null;
@@ -400,6 +504,7 @@ function resetToLobby(): void {
   state.view = null;
   state.gameOver = false;
   state.gameOverWinner = null;
+  state.showReview = false;
   state.chosen = { A: null, B: null };
   state.tempCharSelect = null;
   state.selectedCard = null;

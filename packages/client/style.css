@@ -1818,6 +1818,11 @@ body {
 
 .gameover-actions {
   margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
 }
 
 .gameover-actions .btn-primary {
@@ -2241,4 +2246,108 @@ code { background: var(--panel2); padding: 2px 8px; border-radius: 6px; font-siz
   .card-portrait {
     height: 70px;
   }
+}
+
+/* ========== 战斗复盘（结算后查看完整战报） ========== */
+.review-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(10, 8, 18, 0.88);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.review-panel {
+  width: min(880px, 96vw);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(145deg, var(--panel), rgba(47, 39, 72, 0.98));
+  border-radius: 20px;
+  border: 2px solid rgba(123, 108, 246, 0.4);
+  box-shadow: 0 16px 64px rgba(0, 0, 0, 0.6), 0 0 40px rgba(123, 108, 246, 0.15);
+  overflow: hidden;
+}
+
+.review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 24px;
+  border-bottom: 1px solid rgba(154, 143, 184, 0.25);
+  background: rgba(18, 14, 28, 0.6);
+}
+
+.review-title {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--gold);
+  text-shadow: 0 0 20px rgba(244, 201, 93, 0.3);
+}
+
+.review-close {
+  background: rgba(225, 91, 143, 0.15);
+  color: var(--text);
+  border: 1px solid rgba(225, 91, 143, 0.4);
+  border-radius: 20px;
+  padding: 8px 18px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.review-close:hover {
+  background: rgba(225, 91, 143, 0.35);
+  transform: scale(1.05);
+}
+
+.review-sub {
+  padding: 12px 24px;
+  font-size: 0.95rem;
+  color: var(--muted);
+  border-bottom: 1px solid rgba(154, 143, 184, 0.2);
+  background: rgba(18, 14, 28, 0.4);
+}
+
+.review-log {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+  font-size: 0.9rem;
+  line-height: 1.8;
+  scroll-behavior: smooth;
+}
+
+.review-turn-group {
+  margin-bottom: 14px;
+}
+
+.review-turn-header {
+  text-align: center;
+  color: var(--accent2);
+  font-weight: 800;
+  font-size: 1rem;
+  margin: 8px 0 10px;
+  padding: 6px;
+  border-radius: 10px;
+  background: rgba(123, 108, 246, 0.12);
+  border: 1px solid rgba(123, 108, 246, 0.25);
+  letter-spacing: 2px;
+}
+
+.review-phase {
+  display: inline-block;
+  font-size: 0.75rem;
+  color: var(--gold);
+  background: rgba(244, 201, 93, 0.12);
+  border: 1px solid rgba(244, 201, 93, 0.3);
+  border-radius: 8px;
+  padding: 0 8px;
+  margin-right: 8px;
+  vertical-align: middle;
 }
