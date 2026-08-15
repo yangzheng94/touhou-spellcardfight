@@ -510,15 +510,30 @@ describe("已裁决修正的行为规范", () => {
     expect(state.players.A.buffs.some((b) => b.id === "patches-riki-qidong-buff")).toBe(false);
   });
 
-  it("帕奇「里技启动」：仅在上回合使用过后撤步里技准备时才能启动", async () => {
+  it("帕奇「里技启动」：里技准备后的下三回合内均可启动（跨 1~3 回合）", async () => {
+    const riki = patches.skills.find((s) => s.id === "patches-riki-qidong")!;
+    const dummy = card("d", "空", 0, {});
+    // prep 回合 = 3；resolveTurn 内部 turn+1，因此 ec.ctx.turn 分别为 4/5/6 → diff = 1/2/3
+    for (const stateTurn of [3, 4, 5]) {
+      const state = createGameState({ ...patches }, charWith("B", 60, [dummy]), 1);
+      state.turn = stateTurn;
+      state.players.A.resources["_patches_riki_prep"] = 3;
+      await resolveTurn(state, { card: null, skills: [riki] }, { card: dummy, skills: [] });
+      expect(
+        state.players.A.buffs.some((b) => b.id === "patches-riki-qidong-buff"),
+        `prep=3, turn=${stateTurn + 1} 应可启动（下三回合内）`,
+      ).toBe(true);
+    }
+  });
+
+  it("帕奇「里技启动」：超过下三回合窗口（第 4 回合起）无法启动", async () => {
     const riki = patches.skills.find((s) => s.id === "patches-riki-qidong")!;
     const dummy = card("d", "空", 0, {});
     const state = createGameState({ ...patches }, charWith("B", 60, [dummy]), 1);
-    // 第 3 回合完成「后撤步，里技准备」，第 4 回合（turn 3 → 4）宣告里技启动
-    state.turn = 3;
+    state.turn = 6; // ec.ctx.turn = 7，距 prep=3 已过 4 回合
     state.players.A.resources["_patches_riki_prep"] = 3;
     await resolveTurn(state, { card: null, skills: [riki] }, { card: dummy, skills: [] });
-    expect(state.players.A.buffs.some((b) => b.id === "patches-riki-qidong-buff")).toBe(true);
+    expect(state.players.A.buffs.some((b) => b.id === "patches-riki-qidong-buff")).toBe(false);
   });
 
   it("鵺「蛇行表演」：1d3 回合（1~3），修复 off-by-one（曾出现 4 回合）", async () => {

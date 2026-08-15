@@ -35,21 +35,22 @@ export const patches: Character = {
     {
       id: "patches-riki-qidong",
       name: "里技启动",
-      text: "只有在使用过“后撤步，里技准备”的下回合才能够使用，获得“里技启动”Buff（持续 3 回合）：做好启动某样魂5绝学的准备！",
+      text: "只有在使用过“后撤步，里技准备”的下三回合才能够使用，做好启动某样魂5绝学的准备！",
       cooldown: 5,
       passive: false,
       declaredAtTurnStart: true,
       script: {
-        // 发动条件：上回合必须打出过「后撤步，里技准备」。
+        // 发动条件：必须在使用过「后撤步，里技准备」后的下三回合内（turn - prepTurn ∈ [1,3]）。
         // 满足时，获得持续 3 回合的「里技启动」Buff，期间左弓威力为 40。
         power: (ec) => {
           const prepTurn = getRes(ec, ec.self, "_patches_riki_prep");
           // Fix: prepTurn defaults to 0 when never prepared. Without the <= 0 guard,
           // turn 1 would satisfy 0 === turn - 1 and bypass the prep requirement.
-          if (prepTurn <= 0 || prepTurn !== ec.ctx.turn - 1) {
+          const sincePrep = ec.ctx.turn - prepTurn;
+          if (prepTurn <= 0 || sincePrep < 1 || sincePrep > 3) {
             ec.ctx.log({
               type: "info",
-              msg: "里技启动：上回合未进行里技准备，无法启动",
+              msg: "里技启动：未在使用后撤步·里技准备后的下三回合内，无法启动",
             });
             return;
           }
