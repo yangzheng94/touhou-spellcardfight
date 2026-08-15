@@ -198,7 +198,7 @@ function cardNameById(id: string | null): string {
 
 const protocol = location.protocol === "https:" ? "wss:" : "ws:";
 const wsUrl = import.meta.env.VITE_WS_URL || `${protocol}//${location.host}/ws`;
-let ws: WebSocket = new WebSocket(wsUrl);
+let ws: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
 /** sessionStorage 键：断线重连用的房间信息。 */
@@ -232,202 +232,226 @@ function clearSavedRoom(): void {
 // 安装符卡图标格式回退函数（支持 png/jpg/jpeg/webp 自动探测）
 installCardIconFallback();
 
-ws.onopen = () => {
-  console.log("[ws] connected");
-  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
-  // 断线重连：优先恢复原房间
-  const saved = savedRoom();
-  if (saved && saved.roomId && saved.seat) {
-    console.log("[ws] rejoin room:", saved.roomId, saved.seat);
-    ws.send(JSON.stringify({ type: "rejoinRoom", roomId: saved.roomId, seat: saved.seat }));
+function connectWS(): void {
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
     return;
   }
-  // 分享链接自动加入：?room=XXXX
-  const params = new URLSearchParams(location.search);
-  const roomParam = params.get("room");
-  if (roomParam) {
-    params.delete("room");
-    const qs = params.toString();
-    history.replaceState(null, "", qs ? `${location.pathname}?${qs}` : location.pathname);
-    console.log("[ws] auto join via link:", roomParam);
-    ws.send(JSON.stringify({ type: "joinRoom", roomId: roomParam.toUpperCase() }));
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
   }
+  const sock = new WebSocket(wsUrl);
+  ws = sock;
+
+  sock.onopen = () => {
+    console.log("[ws] connected");
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+    // 断线重连：优先恢复原房间
+    const saved = savedRoom();
+    if (saved && saved.roomId && saved.seat) {
+      console.log("[ws] rejoin room:", saved.roomId, saved.seat);
+      sock.send(JSON.stringify({ type: "rejoinRoom", roomId: saved.roomId, seat: saved.seat }));
+      return;
+    }
+    // 分享链接自动加入：?room=XXXX
+    const params = new URLSearchParams(location.search);
+    const roomParam = params.get("room");
+    if (roomParam) {
+      params.delete("room");
+      const qs = params.toString();
+      history.replaceState(null, "", qs ? `${location.pathname}?${qs}` : location.pathname);
+      console.log("[ws] auto join via link:", roomParam);
+      sock.send(JSON.stringify({ type: "joinRoom", roomId: roomParam.toUpperCase() }));
+    }
 };
 
-ws.onmessage = (ev) => {
-  const msg = JSON.parse(ev.data);
-  console.log("[ws] message:", msg.type, msg);
-  switch (msg.type) {
-    case "roomCreated":
-      state.roomId = msg.roomId;
-      state.seat = "A";
-      saveRoom(msg.roomId, "A");
-      state.chosen = { A: null, B: null };
-      state.tempCharSelect = null;
-      render();
-      break;
-    case "joined":
-    case "joinedRoom":
-      state.roomId = msg.roomId;
-      state.seat = msg.seat;
-      saveRoom(msg.roomId, msg.seat);
-      state.chosen = msg.chosen ?? { A: null, B: null };
-      state.tempCharSelect = null;
-      render();
-      break;
-    case "rejoined":
-      // 断线重连成功：恢复房间与座位
-      state.roomId = msg.roomId;
-      state.seat = msg.seat;
-      render();
-      break;
-    case "roster":
-      state.roster = msg.characters ?? msg.roster ?? [];
-      render();
-      break;
-    case "characterChosen":
-    case "chooseCharacter":
-      state.chosen[msg.seat as "A" | "B"] = msg.characterId;
-      render();
-      break;
-    case "gameStart":
-      state.you = msg.you;
-      state.yourChar = msg.yourChar;
-      state.oppChar = msg.oppChar;
-      state.view = msg.view;
-      state.submitted = false;
-      state.waiting = false;
-      state.selectedSkills.clear();
-      state.selectedCard = null;
-      state.tempCharSelect = null;
-      state.oppSelectedCard = null;
-      state.oppSelectedSkills = [];
-      // 断线重连恢复对局时：若已有胜者，直接进入结算界面
-      if (msg.view?.winner) {
-        state.gameOver = true;
-        state.gameOverWinner = msg.view.winner;
-      }
-      // 开始对战 BGM：从双方角色中随机选一人播放
-      void playRandomBattleBGM(msg.yourChar.id, msg.oppChar.id);
-      render();
-      break;
-    case "waitingForOpponent":
-      state.waiting = true;
-      render();
-      break;
-    case "foresightReveal":
-      state.waiting = false;
-      state.submitted = false;
-      state.oppSelectedCard = msg.opponentCard;
-      state.oppSelectedSkills = msg.opponentSkills ?? [];
-      showBanner(`获知：敌方选择了 ${msg.opponentCard ? cardNameById(msg.opponentCard) : "无"}`);
-      render();
-      break;
-    case "turnResolved":
-      const prevHpMe = state.view?.players[state.you!]?.hp;
-      const prevHpO = state.view?.players[state.you === "A" ? "B" : "A"]?.hp;
-      state.view = msg.view;
-      state.submitted = false;
-      state.waiting = false;
-      state.selectedSkills.clear();
-      state.selectedCard = null;
-      state.oppSelectedCard = null;
-      state.oppSelectedSkills = [];
-      
-      // 检测伤害并触发hurt立绘
-      let needHurtTimer = false;
-      if (prevHpMe !== undefined && msg.view) {
-        const currentHpMe = msg.view.players[state.you!].hp;
-        const currentHpO = msg.view.players[state.you === "A" ? "B" : "A"].hp;
-        if (currentHpMe < prevHpMe) {
-          state.hurtUntilMe = Date.now() + 1500; // 1.5秒
-          needHurtTimer = true;
+  sock.onmessage = (ev) => {
+    const msg = JSON.parse(ev.data);
+    console.log("[ws] message:", msg.type, msg);
+    switch (msg.type) {
+      case "roomCreated":
+        state.roomId = msg.roomId;
+        state.seat = "A";
+        saveRoom(msg.roomId, "A");
+        state.chosen = { A: null, B: null };
+        state.tempCharSelect = null;
+        render();
+        break;
+      case "joined":
+      case "joinedRoom":
+        state.roomId = msg.roomId;
+        state.seat = msg.seat;
+        saveRoom(msg.roomId, msg.seat);
+        state.chosen = msg.chosen ?? { A: null, B: null };
+        state.tempCharSelect = null;
+        render();
+        break;
+      case "rejoined":
+        // 断线重连成功：恢复房间与座位
+        state.roomId = msg.roomId;
+        state.seat = msg.seat;
+        render();
+        break;
+      case "roster":
+        state.roster = msg.characters ?? msg.roster ?? [];
+        render();
+        break;
+      case "characterChosen":
+      case "chooseCharacter":
+        state.chosen[msg.seat as "A" | "B"] = msg.characterId;
+        render();
+        break;
+      case "gameStart":
+        state.you = msg.you;
+        state.yourChar = msg.yourChar;
+        state.oppChar = msg.oppChar;
+        state.view = msg.view;
+        state.submitted = false;
+        state.waiting = false;
+        state.selectedSkills.clear();
+        state.selectedCard = null;
+        state.tempCharSelect = null;
+        state.oppSelectedCard = null;
+        state.oppSelectedSkills = [];
+        // 断线重连恢复对局时：若已有胜者，直接进入结算界面
+        if (msg.view?.winner) {
+          state.gameOver = true;
+          state.gameOverWinner = msg.view.winner;
         }
-        if (currentHpO < (prevHpO ?? Infinity)) {
-          state.hurtUntilO = Date.now() + 1500; // 1.5秒
-          needHurtTimer = true;
-        }
-      }
+        // 开始对战 BGM：从双方角色中随机选一人播放
+        void playRandomBattleBGM(msg.yourChar.id, msg.oppChar.id);
+        render();
+        break;
+      case "waitingForOpponent":
+        state.waiting = true;
+        render();
+        break;
+      case "foresightReveal":
+        state.waiting = false;
+        state.submitted = false;
+        state.oppSelectedCard = msg.opponentCard;
+        state.oppSelectedSkills = msg.opponentSkills ?? [];
+        showBanner(`获知：敌方选择了 ${msg.opponentCard ? cardNameById(msg.opponentCard) : "无"}`);
+        render();
+        break;
+      case "turnResolved":
+        const prevHpMe = state.view?.players[state.you!]?.hp;
+        const prevHpO = state.view?.players[state.you === "A" ? "B" : "A"]?.hp;
+        state.view = msg.view;
+        state.submitted = false;
+        state.waiting = false;
+        state.selectedSkills.clear();
+        state.selectedCard = null;
+        state.oppSelectedCard = null;
+        state.oppSelectedSkills = [];
       
-      render();
-      
-      // 触发hurt立绘后自动恢复
-      if (needHurtTimer) {
-        setTimeout(() => {
-          const now = Date.now();
-          if (now >= state.hurtUntilMe && now >= state.hurtUntilO) {
-            render();
-          } else if (now >= state.hurtUntilMe || now >= state.hurtUntilO) {
-            render();
+        // 检测伤害并触发hurt立绘
+        let needHurtTimer = false;
+        if (prevHpMe !== undefined && msg.view) {
+          const currentHpMe = msg.view.players[state.you!].hp;
+          const currentHpO = msg.view.players[state.you === "A" ? "B" : "A"].hp;
+          if (currentHpMe < prevHpMe) {
+            state.hurtUntilMe = Date.now() + 1500; // 1.5秒
+            needHurtTimer = true;
           }
-        }, 1600);
-      }
-      break;
-    case "logEntry":
-      appendLog(msg.entry);
-      break;
-    case "gameOver":
-      state.view = msg.view;
-      state.gameOver = true;
-      state.gameOverWinner = msg.winner || null;
-      state.replay = msg.replay ?? null;
-      stopBGM();
-      render();
-      if (msg.winner === "draw") {
-        showBanner("游戏结束！🤝 平局");
-      } else {
-        showBanner(`游戏结束！${msg.winner === state.you ? "你赢了" : "你输了"}`);
-      }
-      break;
-    case "decisionRequest":
-      state.decision = { prompt: msg.prompt, options: msg.options, range: msg.range };
-      render();
-      break;
-    case "error":
-      showBanner(msg.message);
-      // 重连失败：清除已保存的房间信息，避免停留在失效状态
-      if (msg.message && /房间已失效|座位已被占用/.test(msg.message)) {
-        clearSavedRoom();
+          if (currentHpO < (prevHpO ?? Infinity)) {
+            state.hurtUntilO = Date.now() + 1500; // 1.5秒
+            needHurtTimer = true;
+          }
+        }
+      
+        render();
+      
+        // 触发hurt立绘后自动恢复
+        if (needHurtTimer) {
+          setTimeout(() => {
+            const now = Date.now();
+            if (now >= state.hurtUntilMe && now >= state.hurtUntilO) {
+              render();
+            } else if (now >= state.hurtUntilMe || now >= state.hurtUntilO) {
+              render();
+            }
+          }, 1600);
+        }
+        break;
+      case "logEntry":
+        appendLog(msg.entry);
+        break;
+      case "gameOver":
+        state.view = msg.view;
+        state.gameOver = true;
+        state.gameOverWinner = msg.winner || null;
+        state.replay = msg.replay ?? null;
         stopBGM();
+        render();
+        if (msg.winner === "draw") {
+          showBanner("游戏结束！🤝 平局");
+        } else {
+          showBanner(`游戏结束！${msg.winner === state.you ? "你赢了" : "你输了"}`);
+        }
+        break;
+      case "decisionRequest":
+        state.decision = { prompt: msg.prompt, options: msg.options, range: msg.range };
+        render();
+        break;
+      case "error":
+        showBanner(msg.message);
+        // 重连失败：清除已保存的房间信息，避免停留在失效状态
+        if (msg.message && /房间已失效|座位已被占用/.test(msg.message)) {
+          clearSavedRoom();
+          stopBGM();
+          resetToLobby();
+          render();
+        }
+        break;
+      case "opponentLeft":
+        showBanner("对手已离开房间");
+        stopBGM();
+        clearSavedRoom();
         resetToLobby();
         render();
-      }
-      break;
-    case "opponentLeft":
-      showBanner("对手已离开房间");
-      stopBGM();
-      clearSavedRoom();
-      resetToLobby();
-      render();
-      break;
-    case "opponentDisconnected":
-      showBanner("对手连接已断开，正在等待对方重连…");
-      break;
-    case "opponentReconnected":
-      showBanner("对手已重新连接！");
-      break;
-    default:
-      break;
+        break;
+      case "opponentDisconnected":
+        showBanner("对手连接已断开，正在等待对方重连…");
+        break;
+      case "opponentReconnected":
+        showBanner("对手已重新连接！");
+        break;
+      default:
+        break;
+    }
+};
+
+  sock.onclose = () => {
+    console.log("[ws] closed");
+    showBanner("连接已断开，正在重新连接…");
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+    }
+    reconnectTimer = setTimeout(connectWS, 3000);
+  };
+
+  sock.onerror = (err) => {
+    console.error("[ws] error:", err);
+  };
+}
+
+connectWS();
+
+// 移动端切后台导致 WebSocket 被系统断开时，回到前台立即重连（而非刷新页面）。
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && (!ws || ws.readyState !== WebSocket.OPEN)) {
+    connectWS();
   }
-};
-
-ws.onclose = () => {
-  console.log("[ws] closed");
-  showBanner("连接已断开，正在重新连接…");
-  reconnectTimer = setTimeout(() => location.reload(), 3000);
-};
-
-ws.onerror = (err) => {
-  console.error("[ws] error:", err);
-};
+});
 
 const net = {
   send: (payload: Record<string, unknown>) => {
-    console.log("[net.send]", payload, "ws state:", ws.readyState);
-    if (ws.readyState === WebSocket.OPEN) {
+    console.log("[net.send]", payload, "ws state:", ws?.readyState);
+    if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(payload));
     } else {
-      console.warn("[net.send] WebSocket not open, state:", ws.readyState);
+      console.warn("[net.send] WebSocket not open, state:", ws?.readyState);
       showBanner("网络未连接，请等待重连…");
     }
   },
@@ -502,7 +526,9 @@ function renderGameOver(): void {
   const btnBack = document.getElementById("btn-back-lobby");
   if (btnBack) {
     btnBack.onclick = () => {
-      ws.send(JSON.stringify({ type: "leaveRoom" }));
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "leaveRoom" }));
+      }
       clearSavedRoom();
       resetToLobby();
       render();

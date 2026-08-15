@@ -494,4 +494,24 @@ describe("已裁决修正的行为规范", () => {
     expect(state.damageHistory[0].A.spell).toBe(0);
   });
 
+  it("帕奇「里技启动」：未进行里技准备时无法启动（修复：第一回合不再误触发）", async () => {
+    const riki = patches.skills.find((s) => s.id === "patches-riki-qidong")!;
+    const dummy = card("d", "空", 0, {});
+    const state = createGameState({ ...patches }, charWith("B", 60, [dummy]), 1);
+    // 修复前：getRes 默认 0，turn1 时 0 === turn-1 恒成立 → 第 1 回合就误获 Buff
+    await resolveTurn(state, { card: null, skills: [riki] }, { card: dummy, skills: [] });
+    expect(state.players.A.buffs.some((b) => b.id === "patches-riki-qidong-buff")).toBe(false);
+  });
+
+  it("帕奇「里技启动」：仅在上回合使用过后撤步里技准备时才能启动", async () => {
+    const riki = patches.skills.find((s) => s.id === "patches-riki-qidong")!;
+    const dummy = card("d", "空", 0, {});
+    const state = createGameState({ ...patches }, charWith("B", 60, [dummy]), 1);
+    // 第 3 回合完成「后撤步，里技准备」，第 4 回合（turn 3 → 4）宣告里技启动
+    state.turn = 3;
+    state.players.A.resources["_patches_riki_prep"] = 3;
+    await resolveTurn(state, { card: null, skills: [riki] }, { card: dummy, skills: [] });
+    expect(state.players.A.buffs.some((b) => b.id === "patches-riki-qidong-buff")).toBe(true);
+  });
+
 });

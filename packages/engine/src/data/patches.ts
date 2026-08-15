@@ -44,7 +44,9 @@ export const patches: Character = {
         // 满足时，获得持续 3 回合的「里技启动」Buff，期间左弓威力为 40。
         power: (ec) => {
           const prepTurn = getRes(ec, ec.self, "_patches_riki_prep");
-          if (prepTurn !== ec.ctx.turn - 1) {
+          // Fix: prepTurn defaults to 0 when never prepared. Without the <= 0 guard,
+          // turn 1 would satisfy 0 === turn - 1 and bypass the prep requirement.
+          if (prepTurn <= 0 || prepTurn !== ec.ctx.turn - 1) {
             ec.ctx.log({
               type: "info",
               msg: "里技启动：上回合未进行里技准备，无法启动",
