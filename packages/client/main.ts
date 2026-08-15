@@ -763,9 +763,9 @@ function renderReplay(): void {
 // ========== 单人模式设置 ==========
 function renderSingleSetup(): void {
   const difficulties: { id: Difficulty; label: string; desc: string; disabled?: boolean }[] = [
-    { id: "easy", label: "简单", desc: "完全随机出牌，适合熟悉规则" },
-    { id: "medium", label: "中等", desc: "启发式 AI，会防御、会集火" },
-    { id: "hard", label: "困难", desc: "最优解 AI（开发中，暂未开放）", disabled: true },
+    { id: "easy", label: "简单", desc: "草根妖怪也能取胜的程度" },
+    { id: "medium", label: "中等", desc: "稍微有些棘手的程度" },
+    { id: "hard", label: "困难", desc: "需要全力以赴的程度（未完成）", disabled: true },
   ];
   app.innerHTML = `
     <div class="subscreen">
@@ -781,7 +781,7 @@ function renderSingleSetup(): void {
               <div class="char-portrait"><div class="portrait-container"><div class="char-portrait-placeholder">随机<br><small>随机</small></div></div></div>
               <div class="char-name">随机对手</div>
               <div class="char-hp">HP ?</div>
-              <div class="char-skills">随机匹配</div>
+              <div class="char-skills">充满浪漫的选择</div>
             </div>
             ${state.roster
               .map(
@@ -1129,7 +1129,6 @@ function renderLobby(): void {
     </div>
     <div class="lobby-content">
       <h1 class="lobby-title">东方符卡战</h1>
-      <p class="lobby-subtitle">符卡对抗 · 单机 / 联机对战</p>
       <div class="lobby-panel">
         <button id="btn-single" class="btn-primary lobby-single">⚔ 单人模式</button>
         <button id="btn-create" class="btn-primary">创建房间</button>
