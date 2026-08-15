@@ -233,4 +233,54 @@ describe("服务器端到端对战", () => {
 
     a.close();
   }, 30000);
+
+
+  it("断线重连：对局中断线后对手收到通知，重连可恢复对局并继续结算", async () => {
+    const a = await connect();
+    const b = await connect();
+
+    send(a, { type: "createRoom", name: "Alice" });
+    const created = (await waitFor(a, "roomCreated")) as Extract<ServerMessage, { type: "roomCreated" }>;
+    const roomId = created.roomId;
+    send(b, { type: "joinRoom", roomId, name: "Bob" });
+    await waitFor(b, "joined");
+
+    const startA = waitFor(a, "gameStart");
+    const startB = waitFor(b, "gameStart");
+    send(a, { type: "selectCharacter", characterId: "youmu" });
+    send(b, { type: "selectCharacter", characterId: "reimu" });
+    const gsA = (await startA) as Extract<ServerMessage, { type: "gameStart" }>;
+    await startB;
+
+    // A 断线：B 收到 opponentDisconnected（不立即结束对局）
+    const bDisc = waitFor(b, "opponentDisconnected");
+    a.close();
+    await bDisc;
+
+    // A 重连：收到 rejoined + gameStart，B 收到 opponentReconnected
+    const bReconn = waitFor(b, "opponentReconnected");
+    const a2 = await connect();
+    const rejoinedP = waitFor(a2, "rejoined");
+    const gsP = waitFor(a2, "gameStart");
+    send(a2, { type: "rejoinRoom", roomId, seat: "A" });
+    const rejoined = (await rejoinedP) as Extract<ServerMessage, { type: "rejoined" }>;
+    expect(rejoined.seat).toBe("A");
+    const gs2 = (await gsP) as Extract<ServerMessage, { type: "gameStart" }>;
+    expect(gs2.you).toBe("A");
+    expect(gs2.view.players.A.characterId).toBe("youmu");
+    expect(gs2.view.players.B.characterId).toBe("reimu");
+    await bReconn;
+
+    // 重连后双方仍可正常结算一回合
+    const cardA = gsA.yourChar.cards[0].id;
+    const cardB = gsA.oppChar.cards[0].id;
+    send(a2, { type: "submitMove", cardId: cardA, skillIds: [] });
+    send(b, { type: "submitMove", cardId: cardB, skillIds: [] });
+    const result = (await waitForAny(a2, ["turnResolved", "gameOver"])) as ServerMessage;
+    expect(["turnResolved", "gameOver"]).toContain(result.type);
+
+    a2.close();
+    b.close();
+  }, 30000);
+
 });

@@ -1952,7 +1952,7 @@ code { background: var(--panel2); padding: 2px 8px; border-radius: 6px; font-siz
 }
 
 @keyframes particle-fly {
-  0% { opacity: 1; transform: translate(0, 0) scale(1); }
+  0% { opacity: 1; transform: translate(0, 0) scale(var(--scale, 1)); }
   100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0); }
 }
 
@@ -2965,19 +2965,19 @@ code { background: var(--panel2); padding: 2px 8px; border-radius: 6px; font-siz
 }
 
 @keyframes danmaku-fly {
-  0% { transform: translate(0, 0) scale(1); opacity: 1; }
+  0% { transform: translate(0, 0) scale(var(--scale, 1)); opacity: 1; }
   70% { opacity: 1; }
   100% { transform: translate(var(--tx), var(--ty)) scale(0.7); opacity: 0; }
 }
 
 @keyframes danmaku-spin-fly {
-  0% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+  0% { transform: translate(0, 0) rotate(0deg) scale(var(--scale, 1)); opacity: 1; }
   60% { opacity: 1; }
   100% { transform: translate(var(--tx), var(--ty)) rotate(540deg) scale(0.6); opacity: 0; }
 }
 
 @keyframes danmaku-rise {
-  0% { transform: translate(0, 0) scale(1); opacity: 1; }
+  0% { transform: translate(0, 0) scale(var(--scale, 1)); opacity: 1; }
   100% { transform: translate(var(--tx), calc(var(--ty) - 40px)) scale(0.5); opacity: 0; }
 }
 
@@ -3086,4 +3086,225 @@ button, input, select, textarea { font-family: inherit; }
 
 .lobby-panel {
   box-shadow: var(--shadow), 0 0 60px rgba(123, 108, 246, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* ========== 宣言演出：立绘 ========== */
+.decl-portrait {
+  width: 210px;
+  height: 290px;
+  margin: 0 auto 20px;
+  border-radius: 14px;
+  overflow: hidden;
+  position: relative;
+  border: 2px solid rgba(244, 201, 93, 0.8);
+  box-shadow: 0 0 44px rgba(244, 201, 93, 0.4), 0 12px 40px rgba(0, 0, 0, 0.55);
+  background: radial-gradient(circle at 50% 18%, rgba(123, 108, 246, 0.4), rgba(8, 5, 16, 0.92));
+  animation: decl-portrait-in 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.decl-portrait .portrait-container,
+.decl-portrait .char-portrait-img,
+.decl-portrait .char-portrait-placeholder {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+.decl-portrait .char-portrait-img { display: none; }
+.decl-portrait .char-portrait-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-align: center;
+  padding: 10px;
+}
+@keyframes decl-portrait-in {
+  from { opacity: 0; transform: scale(0.72) translateY(26px); filter: blur(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+}
+
+/* ========== 技能徽标与冷却状态 ========== */
+.skill-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  vertical-align: middle;
+  line-height: 1.5;
+}
+.skill-badge.passive {
+  background: linear-gradient(135deg, rgba(244, 201, 93, 0.25), rgba(244, 201, 93, 0.1));
+  color: #f4c95d;
+  border: 1px solid rgba(244, 201, 93, 0.55);
+}
+.skill-badge.ready {
+  background: linear-gradient(135deg, rgba(46, 204, 113, 0.25), rgba(46, 204, 113, 0.1));
+  color: #6fe3a4;
+  border: 1px solid rgba(46, 204, 113, 0.55);
+}
+.skill-badge.cd {
+  background: linear-gradient(135deg, rgba(225, 91, 91, 0.22), rgba(225, 91, 91, 0.08));
+  color: #ff9c9c;
+  border: 1px solid rgba(225, 91, 91, 0.5);
+}
+
+.skill-status-line { margin: 2px 0 6px; }
+.skill-status {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.skill-status.ready { color: #6fe3a4; background: rgba(46, 204, 113, 0.12); border: 1px solid rgba(46, 204, 113, 0.4); }
+.skill-status.cd { color: #ff9c9c; background: rgba(225, 91, 91, 0.1); border: 1px solid rgba(225, 91, 91, 0.4); }
+.skill-status.not-ready { color: var(--muted); background: rgba(154, 143, 184, 0.1); border: 1px solid rgba(154, 143, 184, 0.3); }
+.skill-status.passive { color: #f4c95d; background: rgba(244, 201, 93, 0.1); border: 1px solid rgba(244, 201, 93, 0.35); }
+
+/* ========== 差异化弹幕：缩放与延迟 ========== */
+.danmaku-bullet {
+  animation-delay: var(--delay, 0s);
+  transform-origin: center;
+}
+
+/* ========== BUFF 图标与悬浮说明 ========== */
+.buff-tag {
+  position: relative;
+  cursor: help;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.buff-tag::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  width: max-content;
+  max-width: 260px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(12, 8, 22, 0.96);
+  border: 1px solid rgba(244, 201, 93, 0.4);
+  color: var(--text);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  white-space: pre-line;
+  text-align: left;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  z-index: 1200;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+.buff-tag:hover::after,
+.buff-tag:focus-within::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.buff-remain {
+  display: inline-block;
+  margin-left: 2px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  opacity: 0.85;
+  background: rgba(0, 0, 0, 0.25);
+}
+.buff-tag.empty {
+  opacity: 0.55;
+  cursor: default;
+}
+.buff-tag.empty::after { display: none; }
+
+.buff-tag.cat-power { background: linear-gradient(135deg, rgba(244, 201, 93, 0.3), rgba(244, 201, 93, 0.12)); border-color: rgba(244, 201, 93, 0.45); }
+.buff-tag.cat-heal { background: linear-gradient(135deg, rgba(46, 204, 113, 0.28), rgba(46, 204, 113, 0.1)); border-color: rgba(46, 204, 113, 0.45); }
+.buff-tag.cat-damage-taken { background: linear-gradient(135deg, rgba(225, 91, 91, 0.26), rgba(225, 91, 91, 0.1)); border-color: rgba(225, 91, 91, 0.45); }
+.buff-tag.cat-delayed-damage { background: linear-gradient(135deg, rgba(155, 89, 182, 0.28), rgba(155, 89, 182, 0.1)); border-color: rgba(155, 89, 182, 0.45); }
+.buff-tag.cat-immune-reflect-absorb { background: linear-gradient(135deg, rgba(64, 156, 255, 0.26), rgba(64, 156, 255, 0.1)); border-color: rgba(64, 156, 255, 0.45); }
+.buff-tag.cat-negate { background: linear-gradient(135deg, rgba(231, 76, 60, 0.24), rgba(231, 76, 60, 0.08)); border-color: rgba(231, 76, 60, 0.45); }
+.buff-tag.cat-hp-lock { background: linear-gradient(135deg, rgba(230, 126, 34, 0.26), rgba(230, 126, 34, 0.1)); border-color: rgba(230, 126, 34, 0.45); }
+.buff-tag.cat-other { background: linear-gradient(135deg, rgba(154, 143, 184, 0.24), rgba(154, 143, 184, 0.1)); border-color: rgba(154, 143, 184, 0.4); }
+
+/* ========== 大厅设置（BGM 音量） ========== */
+.lobby-settings {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+.settings-label {
+  font-size: 0.88rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.volume-slider {
+  width: 160px;
+  accent-color: #7b6cf6;
+  cursor: pointer;
+}
+.btn-tool.muted {
+  opacity: 0.6;
+  border-color: rgba(225, 91, 91, 0.5);
+  color: #ff9c9c;
+}
+
+/* ========== 选人页顶栏（移动端换行） ========== */
+.select-topbar {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.select-topbar .btn-tool {
+  padding: 6px 12px;
+  font-size: 0.82rem;
+}
+
+/* ========== 移动端深化 ========== */
+@media (max-width: 768px) {
+  .decl-portrait {
+    width: 150px;
+    height: 200px;
+    margin-bottom: 12px;
+  }
+  .lobby-settings {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .volume-slider {
+    width: 70%;
+  }
+  .select-topbar {
+    justify-content: center;
+  }
+}
+@media (max-width: 480px) {
+  .decl-portrait {
+    width: 120px;
+    height: 160px;
+    margin-bottom: 10px;
+  }
+  .skill-badge {
+    font-size: 0.65rem;
+    padding: 1px 7px;
+    margin-left: 5px;
+  }
+  .buff-tag {
+    font-size: 0.74rem;
+    padding: 3px 9px;
+  }
+  .buff-tag::after {
+    max-width: 200px;
+    left: 0;
+    transform: translateX(0) translateY(4px);
+  }
+  .buff-tag:hover::after {
+    transform: translateX(0) translateY(0);
+  }
 }

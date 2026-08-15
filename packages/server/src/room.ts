@@ -6,6 +6,7 @@ import {
   type GameState,
   type PlayerId,
   type Character,
+  type Skill,
   type DecisionResolver,
 } from "../../engine/src/index.js";
 import { CHARACTERS, CHARACTERS_BY_ID } from "../../engine/src/data/index.js";
@@ -23,6 +24,15 @@ import type {
 // ---------------------------------------------------------------------------
 // 视图转换
 // ---------------------------------------------------------------------------
+
+/** 技能距下次可用的剩余回合数（0 = 可用）。 */
+function skillCooldownLeft(state: GameState | null, who: PlayerId | null, s: Skill): number {
+  if (!state || !who || s.passive) return 0;
+  const last = state.players[who].skillLastUsedTurn[s.id];
+  if (last === undefined) return 0;
+  const nextTurn = state.turn + 1;
+  return Math.max(0, s.cooldown - (nextTurn - last));
+}
 
 function characterInfo(state: GameState | null, who: PlayerId | null, char: Character): CharacterInfo {
   return {
@@ -44,6 +54,7 @@ function characterInfo(state: GameState | null, who: PlayerId | null, char: Char
       passive: s.passive,
       declaredAtTurnStart: s.declaredAtTurnStart,
       ready: state && who ? isSkillReady(state, who, s) : true,
+      cooldownLeft: skillCooldownLeft(state, who, s),
     })),
   };
 }
@@ -59,7 +70,14 @@ function playerView(state: GameState, who: PlayerId): PlayerView {
     usedCardIds: p.usedCardIds,
     resources: p.resources,
     flags: p.flags,
-    buffs: p.buffs.map((b) => ({ id: b.id, name: b.name, remainingTurns: b.remainingTurns })),
+    buffs: p.buffs.map((b) => ({
+      id: b.id,
+      name: b.name,
+      remainingTurns: b.remainingTurns,
+      remainingTriggers: b.remainingTriggers,
+      category: b.category,
+      text: b.text,
+    })),
     skills: p.character.skills.map((s) => ({
       id: s.id,
       name: s.name,
@@ -68,6 +86,7 @@ function playerView(state: GameState, who: PlayerId): PlayerView {
       passive: s.passive,
       declaredAtTurnStart: s.declaredAtTurnStart,
       ready: isSkillReady(state, who, s),
+      cooldownLeft: skillCooldownLeft(state, who, s),
     })),
   };
 }
@@ -110,14 +129,18 @@ interface Seat {
   characterId: string | null;
   pendingMove: { cardId: string | null; skillIds: string[] } | null;
   pendingDecision: { resolve: (value: number) => void; reject: (reason?: unknown) => void } | null;
+  /** 断线重连期间暂存的决策请求，便于重连后恢复。 */
+  pendingDecisionReq: { prompt: string; options: string[]; range?: { min: number; max: number } } | null;
+  /** 断线时间戳（重连宽限期内可恢复座位）。 */
+  disconnectedAt: number | null;
   isAI: boolean;
 }
 
 class Room {
   id: string;
   seats: Record<PlayerId, Seat> = {
-    A: { ws: null, name: "玩家A", characterId: null, pendingMove: null, pendingDecision: null, isAI: false },
-    B: { ws: null, name: "玩家B", characterId: null, pendingMove: null, pendingDecision: null, isAI: false },
+    A: { ws: null, name: "玩家A", characterId: null, pendingMove: null, pendingDecision: null, pendingDecisionReq: null, disconnectedAt: null, isAI: false },
+    B: { ws: null, name: "玩家B", characterId: null, pendingMove: null, pendingDecision: null, pendingDecisionReq: null, disconnectedAt: null, isAI: false },
   };
   state: GameState | null = null;
   seed: number;
@@ -278,6 +301,11 @@ class Room {
         options: req.options,
         range: req.range,
       });
+      this.seats[req.player].pendingDecisionReq = {
+        prompt: req.prompt,
+        options: req.options,
+        range: req.range,
+      };
       return new Promise<number>((resolve) => {
         this.seats[req.player].pendingDecision = {
           resolve: (value: number) => resolve(value),
@@ -328,6 +356,7 @@ class Room {
       seat.pendingDecision.resolve(value);
       seat.pendingDecision = null;
     }
+    seat.pendingDecisionReq = null;
   }
 
   /** 汇总整局录像数据（角色信息 + 逐回合出牌/HP/日志）。 */
@@ -373,6 +402,13 @@ interface Conn {
   seat: PlayerId | null;
 }
 
+/** 断线重连宽限期（毫秒）：超过后座位将被回收。 */
+const RECONNECT_GRACE_MS = 60_000;
+
+function seatAlive(seat: Seat): boolean {
+  return !!seat.ws && seat.ws.readyState === WebSocket.OPEN;
+}
+
 export function startServer(port: number): void {
   const wss = new WebSocketServer({ port });
   console.log(`[server] WebSocket 监听 ws://localhost:${port}`);
@@ -393,11 +429,27 @@ export function startServer(port: number): void {
         /* 连接已关闭 */
       }
     }
-    // 空房间回收：双方座位都无存活连接时删除（AI 座位不占连接）。
+    // 断线超时回收 + 空房间清理。
+    const now = Date.now();
     for (const [id, room] of rooms) {
-      const aAlive = room.seats.A.ws && room.seats.A.ws.readyState === WebSocket.OPEN;
-      const bAlive = room.seats.B.ws && room.seats.B.ws.readyState === WebSocket.OPEN;
-      if (!aAlive && !bAlive) {
+      // 回收超过宽限期的断线座位
+      for (const who of ["A", "B"] as PlayerId[]) {
+        const seat = room.seats[who];
+        if (seat.isAI || seatAlive(seat)) continue;
+        if (seat.disconnectedAt !== null && now - seat.disconnectedAt > RECONNECT_GRACE_MS) {
+          seat.ws = null;
+          seat.disconnectedAt = null;
+          seat.pendingMove = null;
+          seat.pendingDecision = null;
+          seat.pendingDecisionReq = null;
+          const opp = who === "A" ? "B" : "A";
+          if (seatAlive(room.seats[opp])) room.send(opp, { type: "opponentLeft" });
+        }
+      }
+      // 空房间回收：AI 座位或座位已超过宽限期时删除
+      const aGone = room.seats.A.isAI || !seatAlive(room.seats.A) && (room.seats.A.disconnectedAt === null || now - room.seats.A.disconnectedAt > RECONNECT_GRACE_MS);
+      const bGone = room.seats.B.isAI || !seatAlive(room.seats.B) && (room.seats.B.disconnectedAt === null || now - room.seats.B.disconnectedAt > RECONNECT_GRACE_MS);
+      if (aGone && bGone) {
         rooms.delete(id);
       }
     }
@@ -429,11 +481,14 @@ export function attachWebSocket(wss: WebSocketServer): void {
       if (conn.roomId && conn.seat) {
         const room = rooms.get(conn.roomId);
         if (room) {
+          const seat = room.seats[conn.seat];
+          // 仅当该连接仍是当前座位连接时才标记断线，避免重连成功后旧连接误伤座位。
+          if (seat.ws !== conn.ws) return;
+          seat.disconnectedAt = Date.now();
+          // 通知对手进入重连等待（不立即结束对局）。
           const opp = conn.seat === "A" ? "B" : "A";
-          room.send(opp, { type: "opponentLeft" });
-          // 双方都离开（含单人房的 AI 空位）则删除房间
-          if (!room.seats.A.ws && !room.seats.B.ws) {
-            rooms.delete(conn.roomId);
+          if (seatAlive(room.seats[opp])) {
+            room.send(opp, { type: "opponentDisconnected" });
           }
         }
       }
@@ -489,6 +544,50 @@ function handle(conn: Conn, msg: ClientMessage): void {
       for (const who of ["A", "B"] as PlayerId[]) {
         if (room.seats[who].characterId)
           room.broadcast({ type: "characterChosen", seat: who, characterId: room.seats[who].characterId! });
+      }
+      break;
+    }
+    case "rejoinRoom": {
+      const room = rooms.get(msg.roomId.toUpperCase());
+      if (!room) return send(conn.ws, { type: "error", message: "房间已失效，请重新创建" });
+      const seat = room.seats[msg.seat];
+      const withinGrace = seat.disconnectedAt !== null && Date.now() - seat.disconnectedAt <= RECONNECT_GRACE_MS;
+      if (!withinGrace) {
+        return send(conn.ws, { type: "error", message: "房间已失效，请重新创建" });
+      }
+      if (seatAlive(seat)) {
+        return send(conn.ws, { type: "error", message: "该座位已被占用" });
+      }
+      seat.ws = conn.ws;
+      seat.disconnectedAt = null;
+      conn.roomId = room.id;
+      conn.seat = msg.seat;
+      const opp = msg.seat === "A" ? "B" : "A";
+      send(conn.ws, { type: "rejoined", roomId: room.id, seat: msg.seat });
+      room.send(opp, { type: "opponentReconnected" });
+      // 恢复对局状态
+      if (room.state) {
+        const you = msg.seat;
+        send(conn.ws, {
+          type: "gameStart",
+          view: gameView(room.state),
+          you,
+          yourChar: characterInfo(room.state, you, room.state.players[you].character),
+          oppChar: characterInfo(room.state, opp, room.state.players[opp].character),
+        });
+        // 若存在待决策请求，重发
+        const pending = seat.pendingDecisionReq;
+        if (pending) {
+          send(conn.ws, { type: "decisionRequest", prompt: pending.prompt, options: pending.options, range: pending.range });
+        }
+      } else {
+        // 仍在选人阶段：重发角色列表与已选角色
+        send(conn.ws, rosterMessage());
+        for (const who of ["A", "B"] as PlayerId[]) {
+          if (room.seats[who].characterId) {
+            send(conn.ws, { type: "characterChosen", seat: who, characterId: room.seats[who].characterId! });
+          }
+        }
       }
       break;
     }
@@ -596,6 +695,8 @@ function handle(conn: Conn, msg: ClientMessage): void {
         room.seats[seat].characterId = null;
         room.seats[seat].pendingMove = null;
         room.seats[seat].pendingDecision = null;
+        room.seats[seat].pendingDecisionReq = null;
+        room.seats[seat].disconnectedAt = null;
         room.send(opp, { type: "opponentLeft" });
         // 若房间已空则删除
         if (!room.seats.A.ws && !room.seats.B.ws) {

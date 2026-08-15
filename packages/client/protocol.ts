@@ -16,6 +16,8 @@ export interface SkillInfo {
   passive: boolean;
   declaredAtTurnStart: boolean;
   ready: boolean;
+  /** 技能距下次可用的剩余回合数（0 = 可用）。 */
+  cooldownLeft: number;
 }
 
 export interface CharacterInfo {
@@ -35,7 +37,7 @@ export interface PlayerView {
   usedCardIds: string[];
   resources: Record<string, number>;
   flags: Record<string, string | number | boolean>;
-  buffs: { id: string; name: string; remainingTurns: number }[];
+  buffs: { id: string; name: string; remainingTurns: number; remainingTriggers: number; category?: string; text?: string }[];
   skills: SkillInfo[];
 }
 
@@ -52,6 +54,7 @@ export type ClientMessage =
   | { type: "createRoom"; name?: string }
   | { type: "createSinglePlayerRoom"; name?: string; opponentId?: string; difficulty?: Difficulty }
   | { type: "joinRoom"; roomId: string; name?: string }
+  | { type: "rejoinRoom"; roomId: string; seat: "A" | "B" }
   | { type: "selectCharacter"; characterId: string }
   | { type: "submitMove"; cardId: string | null; skillIds: string[] }
   | { type: "decision"; value: number }
@@ -96,6 +99,7 @@ export interface ReplayData {
 export type ServerMessage =
   | { type: "roomCreated"; roomId: string; seat: "A" | "B" }
   | { type: "joined"; roomId: string; seat: "A" | "B" }
+  | { type: "rejoined"; roomId: string; seat: "A" | "B" }
   | { type: "error"; message: string }
   | { type: "roster"; characters: CharacterInfo[] }
   | { type: "characterChosen"; seat: "A" | "B"; characterId: string }
@@ -105,5 +109,7 @@ export type ServerMessage =
   | { type: "logEntry"; entry: LogEntry }
   | { type: "decisionRequest"; prompt: string; options: string[]; range?: { min: number; max: number } }
   | { type: "opponentLeft" }
+  | { type: "opponentDisconnected" }
+  | { type: "opponentReconnected" }
   | { type: "gameOver"; winner: "A" | "B" | "draw"; view: GameView; replay?: ReplayData }
   | { type: "foresightReveal"; opponentCard: string | null; opponentSkills: string[] };

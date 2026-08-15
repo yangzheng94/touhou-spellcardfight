@@ -1,7 +1,7 @@
-import type { CharacterInfo, GameView, LogEntry, Difficulty, ReplayData } from "./protocol.js";
+import type { CharacterInfo, GameView, LogEntry, Difficulty, ReplayData, SkillInfo } from "./protocol.js";
 import { getCardIcon, installCardIconFallback } from "./icons/index.js";
 import { getPortraitOrFallback, type PortraitState } from "./portraits.js";
-import { playRandomBattleBGM, stopBGM, toggleMute, getMuteState } from "./bgm.js";
+import { playRandomBattleBGM, stopBGM, toggleMute, getMuteState, setBGMVolume, getBGMVolume } from "./bgm.js";
 
 const app = document.getElementById("app")!;
 
@@ -198,8 +198,36 @@ function cardNameById(id: string | null): string {
 
 const protocol = location.protocol === "https:" ? "wss:" : "ws:";
 const wsUrl = import.meta.env.VITE_WS_URL || `${protocol}//${location.host}/ws`;
-const ws = new WebSocket(wsUrl);
+let ws: WebSocket = new WebSocket(wsUrl);
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** sessionStorage 键：断线重连用的房间信息。 */
+const ROOM_KEY = "thsb_rejoin_room";
+
+function savedRoom(): { roomId: string; seat: "A" | "B" } | null {
+  try {
+    const raw = sessionStorage.getItem(ROOM_KEY);
+    return raw ? (JSON.parse(raw) as { roomId: string; seat: "A" | "B" }) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveRoom(roomId: string, seat: "A" | "B"): void {
+  try {
+    sessionStorage.setItem(ROOM_KEY, JSON.stringify({ roomId, seat }));
+  } catch {
+    /* ignore */
+  }
+}
+
+function clearSavedRoom(): void {
+  try {
+    sessionStorage.removeItem(ROOM_KEY);
+  } catch {
+    /* ignore */
+  }
+}
 
 // 安装符卡图标格式回退函数（支持 png/jpg/jpeg/webp 自动探测）
 installCardIconFallback();
@@ -207,6 +235,23 @@ installCardIconFallback();
 ws.onopen = () => {
   console.log("[ws] connected");
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  // 断线重连：优先恢复原房间
+  const saved = savedRoom();
+  if (saved && saved.roomId && saved.seat) {
+    console.log("[ws] rejoin room:", saved.roomId, saved.seat);
+    ws.send(JSON.stringify({ type: "rejoinRoom", roomId: saved.roomId, seat: saved.seat }));
+    return;
+  }
+  // 分享链接自动加入：?room=XXXX
+  const params = new URLSearchParams(location.search);
+  const roomParam = params.get("room");
+  if (roomParam) {
+    params.delete("room");
+    const qs = params.toString();
+    history.replaceState(null, "", qs ? `${location.pathname}?${qs}` : location.pathname);
+    console.log("[ws] auto join via link:", roomParam);
+    ws.send(JSON.stringify({ type: "joinRoom", roomId: roomParam.toUpperCase() }));
+  }
 };
 
 ws.onmessage = (ev) => {
@@ -216,6 +261,7 @@ ws.onmessage = (ev) => {
     case "roomCreated":
       state.roomId = msg.roomId;
       state.seat = "A";
+      saveRoom(msg.roomId, "A");
       state.chosen = { A: null, B: null };
       state.tempCharSelect = null;
       render();
@@ -224,8 +270,15 @@ ws.onmessage = (ev) => {
     case "joinedRoom":
       state.roomId = msg.roomId;
       state.seat = msg.seat;
+      saveRoom(msg.roomId, msg.seat);
       state.chosen = msg.chosen ?? { A: null, B: null };
       state.tempCharSelect = null;
+      render();
+      break;
+    case "rejoined":
+      // 断线重连成功：恢复房间与座位
+      state.roomId = msg.roomId;
+      state.seat = msg.seat;
       render();
       break;
     case "roster":
@@ -249,6 +302,11 @@ ws.onmessage = (ev) => {
       state.tempCharSelect = null;
       state.oppSelectedCard = null;
       state.oppSelectedSkills = [];
+      // 断线重连恢复对局时：若已有胜者，直接进入结算界面
+      if (msg.view?.winner) {
+        state.gameOver = true;
+        state.gameOverWinner = msg.view.winner;
+      }
       // 开始对战 BGM：从双方角色中随机选一人播放
       void playRandomBattleBGM(msg.yourChar.id, msg.oppChar.id);
       render();
@@ -327,12 +385,26 @@ ws.onmessage = (ev) => {
       break;
     case "error":
       showBanner(msg.message);
+      // 重连失败：清除已保存的房间信息，避免停留在失效状态
+      if (msg.message && /房间已失效|座位已被占用/.test(msg.message)) {
+        clearSavedRoom();
+        stopBGM();
+        resetToLobby();
+        render();
+      }
       break;
     case "opponentLeft":
       showBanner("对手已离开房间");
       stopBGM();
+      clearSavedRoom();
       resetToLobby();
       render();
+      break;
+    case "opponentDisconnected":
+      showBanner("对手连接已断开，正在等待对方重连…");
+      break;
+    case "opponentReconnected":
+      showBanner("对手已重新连接！");
       break;
     default:
       break;
@@ -341,8 +413,8 @@ ws.onmessage = (ev) => {
 
 ws.onclose = () => {
   console.log("[ws] closed");
-  showBanner("连接已断开，5秒后重连…");
-  reconnectTimer = setTimeout(() => location.reload(), 5000);
+  showBanner("连接已断开，正在重新连接…");
+  reconnectTimer = setTimeout(() => location.reload(), 3000);
 };
 
 ws.onerror = (err) => {
@@ -431,6 +503,7 @@ function renderGameOver(): void {
   if (btnBack) {
     btnBack.onclick = () => {
       ws.send(JSON.stringify({ type: "leaveRoom" }));
+      clearSavedRoom();
       resetToLobby();
       render();
     };
@@ -987,28 +1060,85 @@ function renderGuide(): void {
   };
 }
 
+// ========== 通用小工具 ==========
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function copyText(text: string, okMsg: string): void {
+  const clip = navigator.clipboard;
+  if (!clip) {
+    showBanner("当前环境不支持复制，请手动复制");
+    return;
+  }
+  clip
+    .writeText(text)
+    .then(() => showBanner(okMsg))
+    .catch(() => showBanner("复制失败，请手动复制"));
+}
+
+// ========== BUFF 图标与悬浮说明 ==========
+const BUFF_ICONS: Record<string, string> = {
+  "damage-taken": "🛡️",
+  power: "⚡",
+  "delayed-damage": "⏳",
+  negate: "🚫",
+  "immune-reflect-absorb": "💠",
+  "hp-lock": "🔒",
+  heal: "💚",
+  other: "✨",
+};
+
+function buffHtml(b: GameView["players"]["A"]["buffs"][number]): string {
+  const icon = BUFF_ICONS[b.category ?? "other"] ?? "✨";
+  let remain = "永续";
+  if (typeof b.remainingTurns === "number" && b.remainingTurns > 0) remain = `${b.remainingTurns} 回合`;
+  else if (typeof b.remainingTriggers === "number" && b.remainingTriggers > 0) remain = `${b.remainingTriggers} 次`;
+  const tip = `${b.name}\n${b.text ? `效果：${b.text}` : ""}\n剩余：${remain}`;
+  return `<span class="buff-tag cat-${b.category ?? "other"}" data-tooltip="${escapeHtml(tip)}" title="${escapeHtml(tip)}">${icon} ${b.name}<small class="buff-remain">${remain}</small></span>`;
+}
+
 // ========== 宣言演出 ==========
+/** 从宣言日志中推断角色 ID（用于演出立绘）。 */
+function declarationCharId(entry: LogEntry): string | undefined {
+  const m = entry.msg.match(/^([^（(]+)（([AB])）/);
+  if (m) {
+    const seat = m[2] as "A" | "B";
+    return seat === state.you ? state.yourChar?.id : state.oppChar?.id;
+  }
+  return undefined;
+}
+
 function maybePlayDeclaration(entry: LogEntry): void {
   const cardMatch = entry.msg.match(/打出符卡：([^｜]+)/);
   if (cardMatch && cardMatch[1].trim() !== "无") {
-    playDeclaration(cardMatch[1].trim(), "spell");
+    playDeclaration(cardMatch[1].trim(), "spell", declarationCharId(entry));
     return;
   }
   const skillMatch = entry.msg.match(/宣告技能：([^｜]+)/);
   if (skillMatch && skillMatch[1].trim() !== "无") {
-    playDeclaration(skillMatch[1].trim(), "skill");
+    playDeclaration(skillMatch[1].trim(), "skill", declarationCharId(entry));
   }
 }
 
-function playDeclaration(name: string, kind: "spell" | "skill"): void {
+function playDeclaration(name: string, kind: "spell" | "skill", charId?: string): void {
   const existing = document.querySelector(".declaration-cutscene");
   if (existing) existing.remove();
   const el = document.createElement("div");
   el.className = `declaration-cutscene ${kind}`;
+  const portraitHtml = charId
+    ? `<div class="decl-portrait">${getPortraitOrFallback(charId, "normal")}</div>`
+    : "";
   el.innerHTML = `
     <div class="decl-backdrop"></div>
     <div class="decl-sweep"></div>
     <div class="decl-content">
+      ${portraitHtml}
       <div class="decl-kicker">${kind === "spell" ? "SPELL CARD" : "SKILL"}</div>
       <div class="decl-name">${name}</div>
     </div>`;
@@ -1059,16 +1189,22 @@ function spawnDanmaku(target: "me" | "foe", kind: "physical" | "spell" | "drain"
   const dy = dstRect.top + dstRect.height / 2 - sy;
   const color = getDanmakuColor(target === "me" ? state.oppChar?.id : state.yourChar?.id);
 
-  const layer = document.createElement("div");
-  layer.className = `danmaku-layer ${kind}`;
-  layer.style.left = `${sx}px`;
-  layer.style.top = `${sy}px`;
-  layer.style.setProperty("--tx", `${dx}px`);
-  layer.style.setProperty("--ty", `${dy}px`);
-  layer.style.setProperty("--danmaku-color", color);
-  layer.innerHTML = '<div class="danmaku-bullet"></div>';
-  document.body.appendChild(layer);
-  setTimeout(() => layer.remove(), 1200);
+  // 多弹幕散开：数量与散布随伤害类型变化，物理呈横向刀光、法术旋转扩散、流失滴落、治疗上升
+  const count = kind === "spell" ? 10 : kind === "physical" ? 8 : kind === "drain" ? 6 : 5;
+  for (let i = 0; i < count; i++) {
+    const layer = document.createElement("div");
+    layer.className = `danmaku-layer ${kind}`;
+    layer.style.left = `${sx + (Math.random() - 0.5) * 36}px`;
+    layer.style.top = `${sy + (Math.random() - 0.5) * 36}px`;
+    layer.style.setProperty("--tx", `${dx + (Math.random() - 0.5) * 90}px`);
+    layer.style.setProperty("--ty", `${dy + (Math.random() - 0.5) * 90}px`);
+    layer.style.setProperty("--danmaku-color", color);
+    layer.style.setProperty("--scale", (0.6 + Math.random() * 0.9).toFixed(2));
+    layer.style.setProperty("--delay", `${(Math.random() * 0.12).toFixed(2)}s`);
+    layer.innerHTML = '<div class="danmaku-bullet"></div>';
+    document.body.appendChild(layer);
+    setTimeout(() => layer.remove(), 1400);
+  }
 }
 
 function spawnShieldFx(target: "me" | "foe", text: string): void {
@@ -1141,8 +1277,13 @@ function renderLobby(): void {
           <button id="btn-guide" class="btn-tool">🎓 新手引导</button>
           <button id="btn-replay" class="btn-tool">🎬 回看录像</button>
         </div>
+        <div class="lobby-settings">
+          <span class="settings-label">🎵 BGM 音量</span>
+          <input id="bgm-volume" class="volume-slider" type="range" min="0" max="100" value="${Math.round(getBGMVolume() * 100)}" />
+          <button id="btn-bgm" class="btn-tool ${getMuteState() ? "muted" : ""}">${getMuteState() ? "🔇 静音" : "🔊 声音"}</button>
+        </div>
       </div>
-      <p class="hint">创建房间后，把 4 位房间码告诉朋友即可对战；单人模式可自选对手与难度。</p>
+      <p class="hint">创建房间后，把 4 位房间码告诉朋友即可对战；也可用「复制邀请链接」直接拉朋友入场。</p>
     </div>`;
   document.getElementById("btn-create")!.onclick = () => net.send({ type: "createRoom" });
   document.getElementById("btn-single")!.onclick = () => {
@@ -1169,6 +1310,19 @@ function renderLobby(): void {
     const v = (document.getElementById("room-input") as HTMLInputElement).value.trim().toUpperCase();
     if (v) net.send({ type: "joinRoom", roomId: v });
   };
+  const volSlider = document.getElementById("bgm-volume");
+  if (volSlider) {
+    volSlider.oninput = () => {
+      setBGMVolume(Number((volSlider as HTMLInputElement).value) / 100);
+    };
+  }
+  const btnBgmLobby = document.getElementById("btn-bgm");
+  if (btnBgmLobby) {
+    btnBgmLobby.onclick = () => {
+      toggleMute();
+      render();
+    };
+  }
 }
 
 function renderCharacterSelect(): void {
@@ -1179,6 +1333,8 @@ function renderCharacterSelect(): void {
     <div class="select-screen">
       <div class="select-topbar">
         <span>房间码 <b>${state.roomId}</b></span>
+        <button id="btn-copy-code" class="btn-tool">📋 复制房间码</button>
+        <button id="btn-copy-link" class="btn-tool">🔗 复制邀请链接</button>
         <span>你是 <b>${state.seat}</b></span>
         <span>对手：${oppChoice ? "已选择" : "选择中…"}</span>
       </div>
@@ -1213,6 +1369,20 @@ function renderCharacterSelect(): void {
     btnConfirm.onclick = () => {
       if (state.tempCharSelect) {
         net.send({ type: "selectCharacter", characterId: state.tempCharSelect });
+      }
+    };
+  }
+  const btnCopyCode = document.getElementById("btn-copy-code");
+  if (btnCopyCode) {
+    btnCopyCode.onclick = () => {
+      if (state.roomId) copyText(state.roomId, "房间码已复制！");
+    };
+  }
+  const btnCopyLink = document.getElementById("btn-copy-link");
+  if (btnCopyLink) {
+    btnCopyLink.onclick = () => {
+      if (state.roomId) {
+        copyText(`${location.origin}${location.pathname}?room=${state.roomId}`, "邀请链接已复制！");
       }
     };
   }
@@ -1258,11 +1428,19 @@ function renderBattle(): void {
   const skillsHtml = (me.skills ?? [])
     .map((s) => {
       const active = state.selectedSkills.has(s.id);
-      const disabled = s.passive || !s.ready || state.submitted || state.waiting;
+      const cd = s.cooldownLeft ?? 0;
+      const disabled = s.passive || !s.ready || cd > 0 || state.submitted || state.waiting;
+      const badge = s.passive
+        ? '<span class="skill-badge passive">被动</span>'
+        : cd > 0
+          ? `<span class="skill-badge cd">冷却 ${cd}T</span>`
+          : s.ready
+            ? '<span class="skill-badge ready">可用</span>'
+            : "";
       return `
-        <label class="skill-toggle ${active ? "on" : ""} ${disabled ? "disabled" : ""}" data-id="${s.id}">
+        <label class="skill-toggle ${active ? "on" : ""} ${disabled ? "disabled" : ""}" data-id="${s.id}" title="${escapeHtml(s.text)}">
           <input type="checkbox" data-skill="${s.id}" ${active ? "checked" : ""} ${disabled ? "disabled" : ""} />
-          ${s.name}${s.cooldown > 1 ? ` <small style="opacity:0.6">(${s.cooldown}T)</small>` : ""}
+          ${s.name}${badge}
         </label>`;
     })
     .join("");
@@ -1288,8 +1466,8 @@ function renderBattle(): void {
       </div>`)
     .join("");
 
-  const myBuffs = me.buffs.map((b) => b.name).join(", ") || "无";
-  const oppBuffs = opp.buffs.map((b) => b.name).join(", ") || "无";
+  const myBuffs = me.buffs.map(buffHtml).join("") || '<span class="buff-tag empty">无</span>';
+  const oppBuffs = opp.buffs.map(buffHtml).join("") || '<span class="buff-tag empty">无</span>';
 
   const myRes = Object.entries(me.resources)
     .filter(([k, v]) => v !== 0 && !k.startsWith("_"))
@@ -1368,8 +1546,8 @@ function renderBattle(): void {
           <h3>回合状态</h3>
           <div class="turn-indicator">第 ${v.turn} 回合</div>
           <div class="status-buffs">
-            <div class="buffs-row"><span class="buffs-label">你的BUFF：</span>${myBuffs.split(", ").map(b => `<span class="buff-tag">${b}</span>`).join("")}</div>
-            <div class="buffs-row"><span class="buffs-label">对手BUFF：</span>${oppBuffs.split(", ").map(b => `<span class="buff-tag">${b}</span>`).join("")}</div>
+            <div class="buffs-row"><span class="buffs-label">你的BUFF：</span>${myBuffs}</div>
+            <div class="buffs-row"><span class="buffs-label">对手BUFF：</span>${oppBuffs}</div>
           </div>
         </div>
 
@@ -1474,12 +1652,23 @@ function renderSkillPanel(me: GameView["players"]["A"], opp: GameView["players"]
   const mySkills = me.skills || [];
   const oppSkills = opp.skills || [];
   
-  const skillCard = (s: { id: string; name: string; text: string; passive?: boolean; cooldown: number }, owner: "me" | "foe") => `
+  const skillCard = (s: SkillInfo, owner: "me" | "foe") => {
+    const cd = s.cooldownLeft ?? 0;
+    const status = s.passive
+      ? '<span class="skill-status passive">被动技能</span>'
+      : cd > 0
+        ? `<span class="skill-status cd">⏳ 冷却中 · 剩余 ${cd} 回合</span>`
+        : s.ready
+          ? '<span class="skill-status ready">✅ 本回合可用</span>'
+          : '<span class="skill-status not-ready">本回合不可用</span>';
+    return `
     <div class="skill-card ${owner}">
       <div class="skill-name">${s.name}${s.passive ? '<span class="passive">被动</span>' : ""}</div>
-      <div class="skill-cooldown">冷却：${s.cooldown} 回合</div>
+      <div class="skill-cooldown">基础冷却：${s.cooldown} 回合</div>
+      <div class="skill-status-line">${status}</div>
       <div class="skill-text">${s.text}</div>
     </div>`;
+  };
 
   const mySkillsHtml = mySkills.length > 0 
     ? mySkills.map((s) => skillCard(s, "me")).join("") 

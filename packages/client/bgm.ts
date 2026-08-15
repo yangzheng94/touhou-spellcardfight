@@ -12,11 +12,33 @@
 
 const BGM_BASE = "/bgm";
 const SUPPORTED_EXTS = ["mp3", "ogg", "wav"];
+const VOLUME_KEY = "thsb_bgm_volume";
+const MUTED_KEY = "thsb_bgm_muted";
 
 let currentAudio: HTMLAudioElement | null = null;
 let currentCharacterId: string | null = null;
-let masterVolume = 0.6;
-let isMuted = false;
+
+function readStoredVolume(): number {
+  try {
+    const raw = localStorage.getItem(VOLUME_KEY);
+    if (raw === null) return 0.6;
+    const v = Number(raw);
+    return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.6;
+  } catch {
+    return 0.6;
+  }
+}
+
+function readStoredMuted(): boolean {
+  try {
+    return localStorage.getItem(MUTED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+let masterVolume = readStoredVolume();
+let isMuted = readStoredMuted();
 
 function makeBgmUrl(characterId: string, ext: string): string {
   return `${BGM_BASE}/${characterId}.${ext}`;
@@ -61,7 +83,7 @@ function tryLoadAudio(characterId: string): Promise<HTMLAudioElement | null> {
   });
 }
 
-/** 随机选择对战双方中的一人并播放其 BGM。 */
+/** 随机选择对战双方中的一人并播放其 BGM。*/
 export async function playRandomBattleBGM(characterAId: string, characterBId: string): Promise<void> {
   stopBGM();
 
@@ -88,7 +110,7 @@ export async function playRandomBattleBGM(characterAId: string, characterBId: st
   }
 }
 
-/** 停止当前 BGM。 */
+/** 停止当前 BGM。*/
 export function stopBGM(): void {
   if (currentAudio) {
     currentAudio.pause();
@@ -98,17 +120,32 @@ export function stopBGM(): void {
   currentCharacterId = null;
 }
 
-/** 设置 BGM 音量（0~1）。 */
+/** 设置 BGM 音量（0~1），并持久化到本地。*/
 export function setBGMVolume(volume: number): void {
   masterVolume = Math.max(0, Math.min(1, volume));
+  try {
+    localStorage.setItem(VOLUME_KEY, String(masterVolume));
+  } catch {
+    // localStorage 不可用时静默忽略
+  }
   if (currentAudio && !isMuted) {
     currentAudio.volume = masterVolume;
   }
 }
 
-/** 切换静音状态，返回是否已静音。 */
+/** 获取当前 BGM 音量（0~1）。*/
+export function getBGMVolume(): number {
+  return masterVolume;
+}
+
+/** 切换静音状态，返回是否已静音。*/
 export function toggleMute(): boolean {
   isMuted = !isMuted;
+  try {
+    localStorage.setItem(MUTED_KEY, isMuted ? "1" : "0");
+  } catch {
+    // localStorage 不可用时静默忽略
+  }
   if (currentAudio) {
     currentAudio.volume = isMuted ? 0 : masterVolume;
   }
