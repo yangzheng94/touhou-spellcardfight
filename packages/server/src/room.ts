@@ -184,12 +184,12 @@ class Room {
     this.seats.B.pendingMove = move;
   }
 
-  /** 简单人机：完全随机。随机选符卡（或空过），随机宣告部分技能。 */
+  /** 简单人机：完全随机。有可用符卡时必出一张（随机），仅无牌可出时空过。 */
   generateAIMoveEasy(): void {
     const seat: PlayerId = "B";
     const player = this.state!.players[seat];
     const hand = player.character.cards.filter((c) => !player.usedCardIds.includes(c.id));
-    const cardId = hand.length > 0 && Math.random() < 0.9 ? hand[Math.floor(Math.random() * hand.length)].id : null;
+    const cardId = hand.length > 0 ? hand[Math.floor(Math.random() * hand.length)].id : null;
     const skillIds = player.character.skills
       .filter((s) => !s.passive && isSkillReady(this.state!, seat, s) && Math.random() < 0.6)
       .map((s) => s.id);
