@@ -1936,26 +1936,6 @@ code { background: var(--panel2); padding: 2px 8px; border-radius: 6px; font-siz
   60% { transform: translate(1px, -1px); }
 }
 
-/* ========== 粒子爆发效果 ========== */
-.particle-burst {
-  position: fixed;
-  pointer-events: none;
-  z-index: 400;
-}
-
-.particle {
-  position: absolute;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  animation: particle-fly 0.8s ease-out forwards;
-}
-
-@keyframes particle-fly {
-  0% { opacity: 1; transform: translate(0, 0) scale(var(--scale, 1)); }
-  100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0); }
-}
-
 /* ========== 法术伤害光效 ========== */
 .spell-glow {
   animation: spell-glow-anim 0.8s ease-out;
@@ -3017,6 +2997,101 @@ code { background: var(--panel2); padding: 2px 8px; border-radius: 6px; font-siz
   100% { transform: scale(1.5); opacity: 0; }
 }
 
+/* ========== 差异化命中粒子（物理/法术/流失/治疗/护盾） ========== */
+.fx-burst {
+  position: fixed;
+  z-index: 2550;
+  pointer-events: none;
+}
+
+.fx-particle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  opacity: 0;
+  animation: fx-fly 0.9s cubic-bezier(0.2, 0.6, 0.4, 1) forwards;
+  animation-delay: var(--delay, 0s);
+}
+
+@keyframes fx-fly {
+  0% { transform: translate(0, 0) rotate(0deg) scale(var(--scale, 1)); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translate(var(--tx), var(--ty)) rotate(var(--rot, 0deg)) scale(0.15); opacity: 0; }
+}
+
+/* 物理：尖刺碎片，旋转飞出 */
+.fx-physical .fx-particle {
+  width: 9px;
+  height: 9px;
+  clip-path: polygon(50% 0%, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0% 50%, 38% 38%);
+  animation-name: fx-shard-fly;
+}
+
+@keyframes fx-shard-fly {
+  0% { transform: translate(0, 0) rotate(0deg) scale(var(--scale, 1)); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translate(var(--tx), var(--ty)) rotate(calc(var(--rot, 0deg) + 360deg)) scale(0.1); opacity: 0; }
+}
+
+/* 法术：菱形符文，旋转扩散 + 闪烁 */
+.fx-spell .fx-particle {
+  width: 12px;
+  height: 12px;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  animation-name: fx-rune-fly;
+}
+
+@keyframes fx-rune-fly {
+  0% { transform: translate(0, 0) rotate(0deg) scale(0.3); opacity: 0; }
+  25% { opacity: 1; }
+  70% { opacity: 0.8; }
+  100% { transform: translate(var(--tx), var(--ty)) rotate(calc(var(--rot, 0deg) + 540deg)) scale(var(--scale, 1)); opacity: 0; }
+}
+
+/* 流失：血滴上涌 */
+.fx-drain .fx-particle {
+  width: 8px;
+  height: 13px;
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  animation-name: fx-rise;
+}
+
+@keyframes fx-rise {
+  0% { transform: translate(0, 0) scale(var(--scale, 1)); opacity: 0; }
+  20% { opacity: 0.95; }
+  100% { transform: translate(var(--tx), calc(var(--ty) - 55px)) scale(0.3); opacity: 0; }
+}
+
+/* 治疗：光点上飘 */
+.fx-heal .fx-particle {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  animation-name: fx-heal-rise;
+}
+
+@keyframes fx-heal-rise {
+  0% { transform: translate(0, 0) scale(0.4); opacity: 0; }
+  30% { opacity: 1; }
+  100% { transform: translate(var(--tx), calc(var(--ty) - 60px)) scale(1.2); opacity: 0; }
+}
+
+/* 护盾：六边形碎片向外迸溅 */
+.fx-shield .fx-particle {
+  width: 12px;
+  height: 11px;
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+  animation-name: fx-shield-fly;
+}
+
+@keyframes fx-shield-fly {
+  0% { transform: translate(0, 0) rotate(0deg) scale(var(--scale, 1)); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translate(var(--tx), var(--ty)) rotate(var(--rot, 0deg)) scale(0.6); opacity: 0; }
+}
+
 /* ========== 移动端补充适配 ========== */
 @media (max-width: 768px) {
   .subscreen-header { flex-direction: column; align-items: flex-start; }
@@ -3039,7 +3114,7 @@ code { background: var(--panel2); padding: 2px 8px; border-radius: 6px; font-siz
   .replay-slider-row { flex-direction: column; align-items: stretch; }
   .replay-meta-item { font-size: 0.78rem; }
   .decl-name { letter-spacing: 2px; padding: 10px 16px; }
-  .danmaku-layer, .shield-fx { display: none; }
+  .danmaku-layer, .shield-fx, .fx-burst { display: none; }
 }
 
 /* ========== 太极图修复（主题化 SVG 阴阳鱼） ========== */
@@ -3331,4 +3406,72 @@ button, input, select, textarea { font-family: inherit; }
 @keyframes bgm-hint-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.55; }
+}
+
+
+/* ========== 全局错误提示 + 诊断导出 ========== */
+.diag-toast {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 9999;
+  width: min(340px, calc(100vw - 32px));
+  background: linear-gradient(135deg, rgba(60, 28, 52, 0.97), rgba(30, 18, 46, 0.97));
+  border: 1px solid rgba(244, 201, 93, 0.55);
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  animation: diag-toast-in 0.25s ease-out;
+  color: var(--text, #ece6fa);
+}
+
+@keyframes diag-toast-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.diag-toast-head {
+  font-weight: 800;
+  color: #ffb3a7;
+  font-size: 0.98rem;
+  margin-bottom: 6px;
+}
+
+.diag-toast-msg {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: rgba(236, 230, 250, 0.92);
+  word-break: break-all;
+  max-height: 96px;
+  overflow: auto;
+  margin-bottom: 10px;
+}
+
+.diag-toast-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.diag-btn {
+  border: none;
+  border-radius: 20px;
+  padding: 8px 14px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.diag-btn:hover { transform: translateY(-1px); filter: brightness(1.1); }
+
+.diag-export {
+  background: linear-gradient(135deg, #f4c95d, #e0a83c);
+  color: #221633;
+  font-weight: 700;
+}
+
+.diag-dismiss {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(236, 230, 250, 0.85);
+  border: 1px solid rgba(154, 143, 184, 0.4);
 }

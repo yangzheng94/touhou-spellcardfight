@@ -2,6 +2,7 @@ import type { CharacterInfo, GameView, LogEntry, Difficulty, ReplayData, SkillIn
 import { getCardIcon, installCardIconFallback } from "./icons/index.js";
 import { getPortraitOrFallback, type PortraitState } from "./portraits.js";
 import { playRandomBattleBGM, playMenuBGM, stopBGM, toggleMute, getMuteState, setBGMVolume, getBGMVolume } from "./bgm.js";
+import { initDiagnostics, exportDiagnostics } from "./diagnostics.js";
 
 const app = document.getElementById("app")!;
 
@@ -73,26 +74,6 @@ function showDamagePopup(text: string, type: "physical" | "spell" | "heal" | "dr
   el.style.top = `${y}px`;
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 1200);
-}
-
-function createParticleBurst(x: number, y: number, color: string, count = 12): void {
-  const container = document.createElement("div");
-  container.className = "particle-burst";
-  container.style.left = `${x}px`;
-  container.style.top = `${y}px`;
-  for (let i = 0; i < count; i++) {
-    const p = document.createElement("div");
-    p.className = "particle";
-    p.style.background = color;
-    const angle = (Math.PI * 2 * i) / count;
-    const dist = 40 + Math.random() * 60;
-    p.style.setProperty("--tx", `${Math.cos(angle) * dist}px`);
-    p.style.setProperty("--ty", `${Math.sin(angle) * dist}px`);
-    p.style.animationDelay = `${Math.random() * 0.1}s`;
-    container.appendChild(p);
-  }
-  document.body.appendChild(container);
-  setTimeout(() => container.remove(), 900);
 }
 
 function triggerScreenShake(): void {
@@ -187,6 +168,73 @@ const state: State = {
   hurtUntilMe: 0,
   hurtUntilO: 0,
 };
+
+initDiagnostics({ getSnapshot: () => buildDiagSnapshot() });
+
+/** 当前所处界面（用于诊断） */
+function diagScreenName(): string {
+  if (state.replayMode) return "replay";
+  if (state.singleSetup) return "single-setup";
+  if (state.codexOpen) return "codex";
+  if (state.guideOpen) return "guide";
+  if (!state.roomId) return "lobby";
+  if (state.gameOver) return state.showReview ? "review" : "game-over";
+  if (!state.view) return "character-select";
+  return "battle";
+}
+
+/** 打包诊断快照：对局状态 + 录像 + WebSocket 状态 */
+function buildDiagSnapshot(): Record<string, unknown> {
+  const view = state.view;
+  const charBrief = (c: CharacterInfo | null) =>
+    c ? { id: c.id, name: c.name, hp: c.hp, skills: c.skills.map((x) => x.name) } : null;
+  return {
+    screen: diagScreenName(),
+    seat: state.seat,
+    roomId: state.roomId,
+    you: state.you,
+    yourChar: charBrief(state.yourChar),
+    oppChar: charBrief(state.oppChar),
+    chosen: state.chosen,
+    submitted: state.submitted,
+    waiting: state.waiting,
+    selectedCard: state.selectedCard,
+    selectedSkills: [...state.selectedSkills],
+    decision: state.decision,
+    gameOver: state.gameOver,
+    gameOverWinner: state.gameOverWinner,
+    single: {
+      setup: state.singleSetup,
+      opponent: state.singleOpponent,
+      difficulty: state.singleDifficulty,
+    },
+    replayMode: state.replayMode,
+    replayTurn: state.replayTurn,
+    replay: state.replay
+      ? {
+          version: state.replay.version,
+          meta: state.replay.meta,
+          winner: state.replay.winner,
+          turns: state.replay.turns,
+        }
+      : null,
+    view: view
+      ? {
+          turn: view.turn,
+          winner: view.winner,
+          players: view.players,
+          log: (view.log ?? []).slice(-150),
+          hands: view.hands,
+          used: view.used,
+        }
+      : null,
+    ws: {
+      url: wsUrl,
+      readyState: ws ? ws.readyState : -1,
+      savedRoom: savedRoom(),
+    },
+  };
+}
 
 /** 根据符卡 ID 查找符卡名称 */
 function cardNameById(id: string | null): string {
@@ -1197,6 +1245,41 @@ function getDanmakuColor(charId: string | undefined): string {
   return (charId && DANMAKU_THEME[charId]) || "#f4c95d";
 }
 
+type FxKind = "physical" | "spell" | "drain" | "heal" | "shield";
+
+const FX_THEME: Record<FxKind, string> = {
+  physical: "#ff8c42",
+  spell: "#7b6cf6",
+  drain: "#e56767",
+  heal: "#5fd08a",
+  shield: "#78c8ff",
+};
+
+/** 命中点差异化粒子：物理=尖刺碎片、法术=菱形符文、流失=血滴上涌、治疗=光点、护盾=六边形 */
+function spawnImpactFx(x: number, y: number, kind: FxKind, count = 14): void {
+  const container = document.createElement("div");
+  container.className = `fx-burst fx-${kind}`;
+  container.style.left = `${x}px`;
+  container.style.top = `${y}px`;
+  const color = FX_THEME[kind];
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement("div");
+    p.className = "fx-particle";
+    p.style.background = color;
+    p.style.boxShadow = `0 0 8px ${color}, 0 0 22px ${color}`;
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 28 + Math.random() * 72;
+    p.style.setProperty("--tx", `${Math.cos(angle) * dist}px`);
+    p.style.setProperty("--ty", `${Math.sin(angle) * dist}px`);
+    p.style.setProperty("--rot", `${(Math.random() * 360 - 180).toFixed(0)}deg`);
+    p.style.setProperty("--scale", (0.6 + Math.random() * 0.9).toFixed(2));
+    p.style.setProperty("--delay", `${(Math.random() * 0.12).toFixed(2)}s`);
+    container.appendChild(p);
+  }
+  document.body.appendChild(container);
+  setTimeout(() => container.remove(), 1200);
+}
+
 function spawnDanmaku(target: "me" | "foe", kind: "physical" | "spell" | "drain" | "heal"): void {
   const meBox = document.querySelector<HTMLElement>(".portrait-me .portrait-large-box");
   const foeBox = document.querySelector<HTMLElement>(".portrait-foe .portrait-large-box");
@@ -1241,6 +1324,7 @@ function spawnShieldFx(target: "me" | "foe", text: string): void {
   el.style.top = `${rect.top + rect.height / 2}px`;
   el.innerHTML = `<span class="shield-ring"></span><span class="shield-text">${text}</span>`;
   document.body.appendChild(el);
+  spawnImpactFx(rect.left + rect.width / 2, rect.top + rect.height / 2, "shield");
   setTimeout(() => el.remove(), 1200);
 }
 
@@ -1298,6 +1382,7 @@ function renderLobby(): void {
           <button id="btn-codex" class="btn-tool">📖 角色图鉴</button>
           <button id="btn-guide" class="btn-tool">🎓 新手引导</button>
           <button id="btn-replay" class="btn-tool">🎬 回看录像</button>
+          <button id="btn-diag" class="btn-tool">🩹 诊断</button>
         </div>
         <div class="lobby-settings">
           <span class="settings-label">🎵 BGM 音量</span>
@@ -1327,6 +1412,10 @@ function renderLobby(): void {
     state.replayMode = true;
     state.replayTurn = 0;
     render();
+  };
+  document.getElementById("btn-diag")!.onclick = () => {
+    const ok = exportDiagnostics();
+    showBanner(ok ? "诊断信息已导出，请发给开发者排查" : "诊断导出失败，请查看控制台");
   };
   document.getElementById("btn-join")!.onclick = () => {
     const v = (document.getElementById("room-input") as HTMLInputElement).value.trim().toUpperCase();
@@ -1832,7 +1921,7 @@ function processLogEffects(entry: LogEntry): void {
       const num = match ? match[1] : "";
       showDamagePopup(`-${num} 物理`, "physical", pos.x - 40, pos.y);
       flashHpBar(targetSide, "damage");
-      createParticleBurst(pos.x, pos.y + 20, "#ff8c42", 10);
+      spawnImpactFx(pos.x, pos.y + 20, "physical");
     }
     return;
   }
@@ -1848,7 +1937,7 @@ function processLogEffects(entry: LogEntry): void {
       const num = match ? match[1] : "";
       showDamagePopup(`-${num} 法术`, "spell", pos.x - 40, pos.y);
       flashHpBar(targetSide, "damage");
-      createParticleBurst(pos.x, pos.y + 20, "#7b6cf6", 10);
+      spawnImpactFx(pos.x, pos.y + 20, "spell");
     }
     return;
   }
@@ -1863,6 +1952,7 @@ function processLogEffects(entry: LogEntry): void {
       const num = match ? match[1] : "";
       showDamagePopup(`-${num} 流失`, "drain", pos.x - 40, pos.y);
       flashHpBar(targetSide, "damage");
+      spawnImpactFx(pos.x, pos.y + 20, "drain");
     }
     return;
   }
@@ -1877,7 +1967,7 @@ function processLogEffects(entry: LogEntry): void {
       const num = match ? match[1] : "";
       showDamagePopup(`+${num} 回复`, "heal", pos.x - 40, pos.y);
       flashHpBar(targetSide, "heal");
-      createParticleBurst(pos.x, pos.y + 20, "#5fd08a", 8);
+      spawnImpactFx(pos.x, pos.y + 20, "heal");
     }
     return;
   }
