@@ -15,6 +15,8 @@ import {
  * 策略：对己方每个候选着法（符卡 × 技能组合 + 空过），
  * 用「对手最可能打出的几张牌」做 1 层前瞻，逐着在深拷贝的对局状态上真实结算，
  * 以最坏情况（保守）评估打分，选择得分最高的着法。
+ * 空过仅在「显著优于所有出牌着法」时被选中（见 chooseHardMove 的空过矫正），
+ * 避免手中有可用符卡时无意义空过。
  *
  * 与简单（随机）/中等（静态启发式）不同，困难 AI 会真正推演结算，
  * 因此能识别斩杀、免疫、反伤、回血等交互，行为可复现（不依赖随机数）。
@@ -103,10 +105,6 @@ export function evaluate(state: GameState, me: PlayerId): number {
   score += p.hp * 1.2;
   // 对方血量：低血量意味着斩杀窗口
   score -= q.hp * 0.3;
-  // 剩余符卡资源
-  const myCards = p.character.cards.filter((c) => !p.usedCardIds.includes(c.id)).length;
-  const foeCards = q.character.cards.filter((c) => !q.usedCardIds.includes(c.id)).length;
-  score += (myCards - foeCards) * 1.5;
   // 技能可用性（冷却）
   const mySkills = p.character.skills.filter((s) => !s.passive && isSkillReady(state, me, s)).length;
   const foeSkills = q.character.skills.filter((s) => !s.passive && isSkillReady(state, foe, s)).length;
@@ -341,9 +339,16 @@ export async function chooseHardMove(
   const foeCandidates = predictedOpponentMoves(state, other(me), opts.foeCandidates ?? 4);
   const candidates = candidateMoves(state, me);
 
+  // 空过矫正阈值：出牌通常优于空过，仅当「空过」的最坏情况得分显著高于
+  // 所有出牌着法（例如出任何牌都会在预测中被反杀/自爆）时才允许空过。
+  // 评估分约 6 分 ≈ 1 HP，5 分对应不足 1 HP 的差异，视为无意义噪声。
+  const PASS_MARGIN = 5;
+
   let best: AIMove | null = null;
   let bestScore = -Infinity;
-  for (const mv of candidates) {
+  const scores: number[] = new Array(candidates.length).fill(-Infinity);
+  for (let i = 0; i < candidates.length; i++) {
+    const mv = candidates[i];
     let worst = Infinity;
     let simulated = 0;
     for (const fmv of foeCandidates) {
@@ -365,11 +370,29 @@ export async function chooseHardMove(
       if (s < worst) worst = s;
       simulated++;
     }
+    scores[i] = worst;
     if (worst > bestScore) {
       bestScore = worst;
       best = mv;
     }
     if (Date.now() > deadline && best) break;
+  }
+
+  // 空过矫正：手中有可用符卡时，只有空过显著更优才保留空过，
+  // 否则改选最佳出牌着法（避免因保留卡牌的小权重导致无意义空过）。
+  if (best && best.cardId === null && availableCards(state, me).length > 0) {
+    let bestCardScore = -Infinity;
+    let bestCardIdx = -1;
+    for (let i = 0; i < candidates.length; i++) {
+      if (candidates[i].cardId !== null && scores[i] > bestCardScore) {
+        bestCardScore = scores[i];
+        bestCardIdx = i;
+      }
+    }
+    if (bestCardIdx >= 0 && bestScore - bestCardScore < PASS_MARGIN) {
+      best = candidates[bestCardIdx];
+      bestScore = bestCardScore;
+    }
   }
 
   // 兜底：搜索未完成时用静态启发式（等同中等思路：宣告全部技能）

@@ -70,6 +70,21 @@ describe("困难人机 AI", () => {
     expect(d).toBe(1);
   }, 30000);
 
+  it("手中有可用符卡时不会无意义空过（仅当空过显著更优）", async () => {
+    // 历史 bug 复现：youmu vs aya（seed=1）第 3 回合，AI 手中 8 张可用符卡却因
+    // 评估中「保留卡牌」权重选择空过。修复后应照常出牌。
+    const state = newGame(CHARACTERS_BY_ID["youmu"], CHARACTERS_BY_ID["aya"], { seed: 1 });
+    for (let t = 0; t < 2; t++) {
+      const ma = await chooseHardMove(state, "A", { timeBudgetMs: 2000 });
+      const mb = await chooseHardMove(state, "B", { timeBudgetMs: 2000 });
+      await playTurn(state, ma, mb, (req) => 0);
+    }
+    const hand = availableCards(state, "A");
+    expect(hand.length).toBeGreaterThan(0);
+    const mv = await chooseHardMove(state, "A", { timeBudgetMs: 2000 });
+    expect(mv.cardId).not.toBeNull();
+  }, 30000);
+
   it("hardDecide 数值选择取最大值，选项按提示语义选择", () => {
     const state = newGame(CHARACTERS_BY_ID["aya"], CHARACTERS_BY_ID["youmu"], { seed: 1 });
     // 范围：取最大
