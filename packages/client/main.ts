@@ -1906,6 +1906,33 @@ function processLogEffects(entry: LogEntry): void {
   }
 }
 
+// ========== BGM 提示（自动播放策略被拦截时，提示点击开启音乐） ==========
+let bgmHintEl: HTMLElement | null = null;
+
+function updateBGMHint(status: string): void {
+  const show = status === "pending" && !state.gameOver && !state.view;
+  if (show) {
+    if (!bgmHintEl) {
+      bgmHintEl = document.createElement("div");
+      bgmHintEl.className = "bgm-hint";
+      bgmHintEl.textContent = "🔊 点击任意位置开启音乐";
+      document.body.appendChild(bgmHintEl);
+    }
+  } else if (bgmHintEl) {
+    bgmHintEl.remove();
+    bgmHintEl = null;
+  }
+}
+
+window.addEventListener("bgm-status", (e) => {
+  const detail = (e as CustomEvent).detail;
+  if (detail && detail.status) updateBGMHint(detail.status);
+});
+// 用户交互后自动隐藏提示（BGM 重试也会随之播放）
+["pointerdown", "keydown", "touchstart"].forEach((ev) => {
+  window.addEventListener(ev, () => updateBGMHint("playing"), { passive: true });
+});
+
 function showBanner(text: string): void {
   const existing = document.querySelector(".banner");
   if (existing) existing.remove();

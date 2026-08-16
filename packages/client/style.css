@@ -3308,3 +3308,27 @@ button, input, select, textarea { font-family: inherit; }
     transform: translateX(0) translateY(0);
   }
 }
+
+/* BGM 点击开启提示 */
+.bgm-hint {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  padding: 10px 20px;
+  border-radius: 999px;
+  background: rgba(20, 14, 40, 0.92);
+  border: 1px solid rgba(255, 215, 130, 0.55);
+  color: #ffd782;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+  animation: bgm-hint-pulse 2s ease-in-out infinite;
+  pointer-events: none;
+  user-select: none;
+}
+@keyframes bgm-hint-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}

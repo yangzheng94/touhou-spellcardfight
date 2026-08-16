@@ -37,15 +37,30 @@ function retryPlayOnGesture(): void {
     if (!pending) return;
     currentAudio = pending.audio;
     currentCharacterId = pending.characterId;
-    pending.audio.play().catch(() => {
-      console.log(`[BGM] 用户交互后播放 ${pending.characterId} 仍失败`);
-      currentAudio = null;
-      currentCharacterId = null;
-    });
+    pending.audio.play().then(
+      () => emitStatus("playing"),
+      () => {
+        console.log(`[BGM] 用户交互后播放 ${pending.characterId} 仍失败`);
+        currentAudio = null;
+        currentCharacterId = null;
+        emitStatus("none");
+      },
+    );
   };
   window.addEventListener("pointerdown", tryPlay);
   window.addEventListener("keydown", tryPlay);
   window.addEventListener("touchstart", tryPlay);
+}
+
+/**
+ * 向页面广播 BGM 状态，供 UI 展示"点击开启音乐"提示等。
+ */
+function emitStatus(status: "playing" | "pending" | "none"): void {
+  try {
+    window.dispatchEvent(new CustomEvent("bgm-status", { detail: { status } }));
+  } catch {
+    // 非浏览器环境静默忽略
+  }
 }
 
 function readStoredVolume(): number {
@@ -123,6 +138,7 @@ export async function playRandomBattleBGM(characterAId: string, characterBId: st
   const audio = await tryLoadAudio(characterId);
   if (!audio) {
     console.log(`[BGM] 未找到角色 ${characterId} 的 BGM`);
+    emitStatus("none");
     return;
   }
 
@@ -133,12 +149,14 @@ export async function playRandomBattleBGM(characterAId: string, characterBId: st
   try {
     await audio.play();
     console.log(`[BGM] 播放 ${characterId}`);
+    emitStatus("playing");
   } catch (err) {
     // 自动播放策略拦截：等待首次用户交互后自动补播
     console.log("[BGM] 播放被拦截，等待用户交互后重试:", err);
     currentAudio = null;
     pendingPlay = { audio, characterId };
     retryPlayOnGesture();
+    emitStatus("pending");
   }
 }
 
@@ -153,6 +171,7 @@ export async function playMenuBGM(): Promise<void> {
   if (!audio) {
     console.log("[BGM] 未找到 main.mp3");
     currentCharacterId = null;
+    emitStatus("none");
     return;
   }
 
@@ -163,6 +182,7 @@ export async function playMenuBGM(): Promise<void> {
   try {
     await audio.play();
     console.log("[BGM] 播放 main");
+    emitStatus("playing");
   } catch (err) {
     // 自动播放策略拦截：等待首次用户交互后自动补播
     console.log("[BGM] 播放 main 被拦截，等待用户交互后重试:", err);
@@ -170,6 +190,7 @@ export async function playMenuBGM(): Promise<void> {
     currentCharacterId = null;
     pendingPlay = { audio, characterId: "main" };
     retryPlayOnGesture();
+    emitStatus("pending");
   }
 }
 
@@ -182,6 +203,7 @@ export function stopBGM(): void {
   }
   currentCharacterId = null;
   pendingPlay = null;
+  emitStatus("none");
 }
 
 /** 设置 BGM 音量（0~1），并持久化到本地。*/
